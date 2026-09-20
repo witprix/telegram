@@ -1,0 +1,2766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Telegram Sender">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#17212b" media="(prefers-color-scheme: dark)">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%88%EF%B8%8F%3C/text%3E%3C/svg%3E">
+
+    <title>Telegram Sender</title>
+
+    <style>
+        :root {
+            color-scheme: light dark;
+            --blue: #2AABEE;
+            --blue-strong: #1878B0;
+            --blue-strong-hover: #146496;
+            --link: #1670a6;
+            --bg: #EEF1F4;
+            --card: #FFFFFF;
+            --field: #F6F8FA;
+            --line: #E1E5EA;
+            --text: #1c2733;
+            --muted: #5f6c7b;
+            --danger: #c62f3e;
+            --ok: #1a7a43;
+            --warn-bg: #FFF4D6;
+            --warn-text: #6b4e00;
+            --pin: #b7791f;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --link: #5cbcf2;
+                --bg: #0b121a;
+                --card: #17212b;
+                --field: #0e1621;
+                --line: #2a3947;
+                --text: #e7edf3;
+                --muted: #93a3b3;
+                --danger: #ff7a86;
+                --ok: #5fd08a;
+                --warn-bg: #3a3010;
+                --warn-text: #f3d98a;
+            }
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        [hidden] { display: none !important; }
+        html { -webkit-text-size-adjust: 100%; }
+
+        body {
+            font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            justify-content: center;
+            padding:
+                max(16px, env(safe-area-inset-top))
+                max(16px, env(safe-area-inset-right))
+                max(16px, env(safe-area-inset-bottom))
+                max(16px, env(safe-area-inset-left));
+        }
+        @media (min-width: 640px) { body { align-items: center; } }
+
+        .app {
+            width: 100%;
+            max-width: 540px;
+            align-self: flex-start;
+            background: var(--card);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            padding: 22px 20px 26px;
+        }
+        @media (min-width: 640px) { .app { align-self: center; } }
+        @media (max-width: 420px) { .app { padding: 18px 14px 22px; } }
+
+        .app.locked > *:not(#lockScreen) { display: none !important; }
+
+        .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+        /* ---------- Header and tabs ---------- */
+        .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .head h1 { font-size: 1.375rem; font-weight: 650; line-height: 1.25; }
+        .head-right { display: flex; align-items: center; gap: 4px; flex: none; }
+        .sub { color: var(--muted); font-size: 0.875rem; margin-top: 2px; }
+
+        .pill { flex: none; padding: 4px 12px; border-radius: 99px; font-size: 0.8125rem; font-weight: 600; }
+        .pill[data-state="ok"]    { background: rgba(26, 122, 67, 0.14); color: var(--ok); }
+        .pill[data-state="setup"] { background: var(--warn-bg); color: var(--warn-text); }
+
+        .tabs {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+            padding: 4px; margin: 18px 0 20px;
+            background: var(--field); border: 1px solid var(--line); border-radius: 12px;
+        }
+        .tab {
+            display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+            min-height: 44px; padding: 0 4px; border: 0; border-radius: 9px;
+            background: transparent; color: var(--muted);
+            font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+        }
+        .tab[aria-selected="true"] {
+            background: var(--card); color: var(--text);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 -2px 0 var(--blue);
+        }
+        .badge {
+            min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+            background: var(--blue-strong); color: #fff;
+            font-size: 0.6875rem; line-height: 18px; text-align: center;
+        }
+
+        /* ---------- Form controls ---------- */
+        .field { margin-bottom: 16px; }
+        label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 6px; }
+        .inline-label { margin: 0; }
+
+        input, textarea, select {
+            width: 100%; font: inherit; font-size: 1rem;
+            color: var(--text); background: var(--field);
+            border: 1.5px solid var(--line); border-radius: 12px;
+            padding: 12px 14px; outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(42, 171, 238, 0.25);
+        }
+        input[type="search"] { -webkit-appearance: none; appearance: none; }
+        textarea { min-height: 150px; resize: vertical; line-height: 1.5; }
+        select { width: auto; min-height: 44px; padding: 8px 12px; }
+        .field select { width: 100%; min-height: 48px; }
+
+        .input-row { display: flex; gap: 8px; }
+        .input-row input { flex: 1; min-width: 0; }
+
+        .hint { font-size: 0.8125rem; color: var(--muted); margin-top: 6px; }
+        .error { color: var(--danger); font-size: 0.875rem; margin: -4px 0 12px; }
+        .muted { color: var(--muted); font-size: 0.875rem; }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            min-height: 48px; padding: 0 18px;
+            border: 1.5px solid transparent; border-radius: 12px;
+            font: inherit; font-weight: 600; cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        .btn.small { padding: 0 14px; }
+        .btn.primary { background: var(--blue-strong); color: #fff; width: 100%; }
+        .btn.primary:hover { background: var(--blue-strong-hover); }
+        .btn.ghost { background: transparent; border-color: var(--line); color: var(--text); }
+        .btn.ghost:hover { background: var(--field); }
+        .btn.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .link-btn {
+            display: inline-flex; align-items: center;
+            background: none; border: 0; color: var(--link); text-decoration: none;
+            font: inherit; font-size: 0.875rem; font-weight: 600;
+            min-height: 44px; padding: 0 6px; cursor: pointer; border-radius: 8px;
+        }
+        .link-btn:hover { text-decoration: underline; }
+        .link-btn.danger { color: var(--danger); }
+        .link-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        button:focus-visible, a:focus-visible, summary:focus-visible {
+            outline: 3px solid var(--blue); outline-offset: 2px;
+        }
+
+        .row { display: flex; gap: 10px; }
+        .row .btn.primary { flex: 1; width: auto; }
+
+        .spinner {
+            width: 18px; height: 18px; border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.35); border-top-color: #fff;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .notice {
+            display: block; width: 100%; text-align: left;
+            background: var(--warn-bg); color: var(--warn-text);
+            border: 0; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;
+            font: inherit; font-size: 0.9rem; cursor: pointer;
+        }
+        .notice.static { cursor: default; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .notice.static .link-btn { color: inherit; text-decoration: underline; }
+
+        /* ---------- Send tab ---------- */
+        .compose-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .compose-bar select { flex: 1 1 120px; min-width: 0; }
+        .fmt { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+        .fmt button {
+            min-width: 44px; min-height: 44px; padding: 0 10px;
+            border: 1.5px solid var(--line); border-radius: 10px;
+            background: var(--field); color: var(--text);
+            font: inherit; font-size: 0.9rem; cursor: pointer;
+        }
+        .fmt button:hover { border-color: var(--blue); }
+
+        details.tpl {
+            border: 1.5px solid var(--line); border-radius: 12px;
+            background: var(--field); margin-bottom: 10px;
+        }
+        details.tpl summary {
+            display: flex; align-items: center; gap: 6px;
+            min-height: 44px; padding: 0 14px; font-weight: 600; cursor: pointer; list-style: none;
+        }
+        details.tpl summary::-webkit-details-marker { display: none; }
+        details.tpl summary::after {
+            content: ''; margin-left: auto; width: 8px; height: 8px;
+            border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+            transform: rotate(45deg); transition: transform 0.15s ease;
+        }
+        details.tpl[open] summary::after { transform: rotate(-135deg); }
+        .tpl-body { padding: 0 14px 10px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; }
+        .chip {
+            display: inline-flex; align-items: center; max-width: 100%;
+            border: 1.5px solid var(--line); border-radius: 99px; background: var(--card);
+        }
+        .chip-main {
+            min-height: 40px; max-width: 220px; padding: 0 6px 0 14px;
+            border: 0; background: none; color: var(--text); border-radius: 99px 0 0 99px;
+            font: inherit; font-size: 0.9rem; cursor: pointer;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .chip-x {
+            min-width: 36px; min-height: 40px; border: 0; background: none;
+            color: var(--muted); font-size: 1.1rem; cursor: pointer; border-radius: 0 99px 99px 0;
+        }
+        .chip-x:hover { color: var(--danger); }
+
+        form.drop textarea { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(42, 171, 238, 0.25); }
+
+        .attach-list { list-style: none; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+        .attach-list li {
+            display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 8px;
+            border: 1.5px solid var(--line); border-radius: 12px; background: var(--field);
+        }
+        .attach-thumb { width: 40px; height: 40px; flex: none; border-radius: 8px; object-fit: cover; background: var(--line); }
+        .attach-ico { width: 40px; height: 40px; flex: none; display: grid; place-items: center; color: var(--muted); }
+        .attach-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
+        .attach-size { font-size: 0.8125rem; color: var(--muted); flex: none; }
+
+        .compose-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 8px; }
+
+        .meta-row {
+            display: flex; justify-content: space-between; gap: 12px;
+            font-size: 0.8125rem; color: var(--muted); margin: 4px 2px 10px;
+        }
+        .meta-row .over { color: var(--warn-text); font-weight: 600; }
+        @media (hover: none) { .kbd-hint { display: none; } }
+
+        .checks { display: flex; flex-wrap: wrap; gap: 0 18px; margin-bottom: 14px; }
+        .check {
+            display: flex; align-items: center; gap: 8px;
+            min-height: 44px; margin: 0; font-size: 0.9375rem; font-weight: 400; cursor: pointer;
+        }
+        .check input { width: 20px; height: 20px; flex: none; accent-color: var(--blue-strong); }
+
+        .section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 26px 0 4px; }
+        .section-head h2 { font-size: 1rem; font-weight: 650; }
+
+        .list { list-style: none; }
+        .list > li { border-bottom: 1px solid var(--line); padding: 12px 0; }
+        .list > li:first-child { border-top: 1px solid var(--line); }
+
+        .h-text {
+            white-space: pre-wrap; overflow-wrap: anywhere;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .h-files { font-size: 0.875rem; color: var(--muted); overflow-wrap: anywhere; }
+        .h-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; margin-top: 2px; }
+        .h-meta { font-size: 0.8125rem; color: var(--muted); }
+        .h-actions { display: flex; flex-wrap: wrap; }
+
+        .empty { color: var(--muted); font-size: 0.9375rem; text-align: center; padding: 22px 8px; }
+
+        /* ---------- Inbox ---------- */
+        .inbox-bar { align-items: center; flex-wrap: wrap; gap: 4px 12px; }
+        .in-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+        .in-from { font-weight: 600; overflow-wrap: anywhere; }
+        .in-time { font-size: 0.8125rem; color: var(--muted); flex: none; }
+        .in-text { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
+        .list > li.unread { border-left: 3px solid var(--blue); padding-left: 10px; }
+
+        /* ---------- Links ---------- */
+        .search { margin: 8px 0; }
+        .tag {
+            display: inline-block; padding: 0 10px; border-radius: 99px;
+            border: 1px solid var(--line); background: var(--field);
+            font-size: 0.75rem; line-height: 1.6; color: var(--muted);
+        }
+        .tag-bar, .tag-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
+        .tag-filter {
+            min-height: 36px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: 99px;
+            background: transparent; color: var(--text); font: inherit; font-size: 0.8125rem; cursor: pointer;
+        }
+        .tag-filter[aria-pressed="true"] { background: var(--blue-strong); border-color: var(--blue-strong); color: #fff; }
+
+        .bulk-bar {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px;
+            padding: 4px 12px; margin: 8px 0; background: var(--field);
+            border: 1.5px solid var(--line); border-radius: 12px;
+        }
+        .bulk-count { font-weight: 600; margin-right: auto; }
+
+        .link-top { display: flex; align-items: center; gap: 10px; }
+        .link-main {
+            flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px;
+            min-height: 48px; color: inherit; text-decoration: none; border-radius: 10px;
+        }
+        .link-main:hover .link-title { text-decoration: underline; }
+        .link-main > svg { flex: none; color: var(--muted); }
+        .link-ico { flex: none; width: 32px; text-align: center; font-size: 1.25rem; }
+        .link-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .link-title, .link-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .link-title { font-weight: 600; }
+        .link-url { font-size: 0.8125rem; color: var(--muted); }
+        input.sel { width: 22px; height: 22px; flex: none; padding: 0; accent-color: var(--blue-strong); }
+
+        .link-extra { margin-left: 44px; }
+        .link-desc {
+            font-size: 0.875rem; margin-top: 2px;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .link-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 0.8125rem; color: var(--muted); margin-top: 2px; }
+        .link-meta .flag { color: var(--warn-text); background: var(--warn-bg); padding: 0 8px; border-radius: 99px; font-weight: 600; }
+        .link-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .link-note { font-size: 0.875rem; color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+
+        .link-actions { display: flex; justify-content: flex-end; gap: 2px; margin-top: 2px; }
+        .link-more { display: flex; flex-wrap: wrap; gap: 0 6px; margin-top: 2px; }
+        .icon-btn {
+            width: 44px; height: 40px; display: grid; place-items: center;
+            background: none; border: 0; border-radius: 10px; color: var(--muted); cursor: pointer;
+        }
+        .icon-btn:hover { background: var(--field); color: var(--text); }
+        .icon-btn.danger:hover { color: var(--danger); }
+        .icon-btn[aria-pressed="true"] { color: var(--pin); }
+        .icon-btn[aria-pressed="true"] svg { fill: currentColor; }
+
+        /* ---------- Settings ---------- */
+        .sect { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }
+        .sect:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+        .sect h2 { font-size: 1rem; font-weight: 650; margin-bottom: 4px; }
+        .sect .row { flex-wrap: wrap; }
+        .result {
+            margin-top: 14px; padding: 10px 12px; border-radius: 10px;
+            background: var(--field); font-size: 0.9rem; overflow-wrap: anywhere; white-space: pre-line;
+        }
+        .result[data-type="ok"] { color: var(--ok); }
+        .result[data-type="error"] { color: var(--danger); }
+        .panel-note { font-size: 0.8125rem; color: var(--muted); margin-top: 12px; }
+        .dest-name { font-weight: 600; overflow-wrap: anywhere; }
+        .dest-id { font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
+
+        /* ---------- Lock screen ---------- */
+        .lock { padding: 16px 0 4px; }
+        .lock h2 { font-size: 1.25rem; margin-bottom: 4px; }
+        .lock .field { margin-top: 16px; }
+
+        /* ---------- Toast ---------- */
+        .toast {
+            position: fixed; left: 50%; z-index: 1000;
+            bottom: calc(24px + env(safe-area-inset-bottom));
+            transform: translate(-50%, 24px); opacity: 0; visibility: hidden;
+            display: flex; align-items: center; gap: 14px;
+            max-width: min(92vw, 420px);
+            background: #1f2933; color: #fff;
+            padding: 12px 18px; border-radius: 14px;
+            font-size: 0.9375rem; line-height: 1.4;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.25s ease, visibility 0s linear 0.3s;
+        }
+        .toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; transition-delay: 0s; }
+        .toast.success { background: #1a7a43; }
+        .toast.error { background: #b3261e; }
+        .toast button {
+            flex: none; min-height: 32px; padding: 0 4px; background: none; border: 0;
+            color: #9ad7ff; font: inherit; font-weight: 700; cursor: pointer;
+        }
+        .toast.success button, .toast.error button { color: #fff; text-decoration: underline; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .toast { transition: none; }
+            .btn:active { transform: none; }
+        }
+    </style>
+</head>
+<body>
+
+<main class="app" id="app">
+    <header class="head">
+        <div>
+            <h1>Telegram Sender</h1>
+            <p class="sub">Messages, files and GitHub links</p>
+        </div>
+        <div class="head-right">
+            <button type="button" class="icon-btn" id="lockNow" aria-label="Lock the app" title="Lock the app" hidden></button>
+            <span class="pill" id="status" data-state="setup">Setup needed</span>
+        </div>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Sections" id="tabs">
+        <button type="button" class="tab" role="tab" id="tab-send" aria-controls="panel-send" aria-selected="true">Send</button>
+        <button type="button" class="tab" role="tab" id="tab-inbox" aria-controls="panel-inbox" aria-selected="false" tabindex="-1">Inbox <span class="badge" id="inboxCount" hidden>0</span></button>
+        <button type="button" class="tab" role="tab" id="tab-links" aria-controls="panel-links" aria-selected="false" tabindex="-1">Links <span class="badge" id="linkCount" hidden>0</span></button>
+        <button type="button" class="tab" role="tab" id="tab-settings" aria-controls="panel-settings" aria-selected="false" tabindex="-1">Settings</button>
+    </div>
+
+    <!-- ================= SEND ================= -->
+    <section class="panel" id="panel-send" role="tabpanel" aria-labelledby="tab-send">
+        <button type="button" class="notice" id="setupBanner" hidden>Add your bot token and a destination in Settings to start sending.</button>
+        <div class="notice static" id="editBanner" hidden>
+            <span>Editing a message you already sent. Nothing changes in Telegram until you tap Update.</span>
+            <button type="button" class="link-btn" id="editCancel">Cancel</button>
+        </div>
+
+        <form id="sendForm" novalidate>
+            <div class="compose-bar">
+                <label class="inline-label" for="dest">To</label>
+                <select id="dest"></select>
+                <label class="sr" for="mode">Message format</label>
+                <select id="mode">
+                    <option value="plain">Plain text</option>
+                    <option value="html">HTML formatting</option>
+                </select>
+            </div>
+            <div class="fmt" id="fmtTools" hidden>
+                <button type="button" data-fmt="b" aria-label="Bold"><b>B</b></button>
+                <button type="button" data-fmt="i" aria-label="Italic"><i>I</i></button>
+                <button type="button" data-fmt="u" aria-label="Underline"><u>U</u></button>
+                <button type="button" data-fmt="s" aria-label="Strikethrough"><s>S</s></button>
+                <button type="button" data-fmt="code" aria-label="Code">Code</button>
+                <button type="button" data-fmt="a" aria-label="Link">Link</button>
+            </div>
+
+            <details class="tpl" id="tplBox">
+                <summary>Templates <span class="muted" id="tplCount"></span></summary>
+                <div class="tpl-body">
+                    <div class="chips" id="tplChips"></div>
+                    <p class="hint" id="tplEmpty">Write a message, then tap Save as template. Use {date} and {time} for the current date and time.</p>
+                    <label class="check"><input type="checkbox" id="tplInstant"> Send right away when a template is tapped</label>
+                </div>
+            </details>
+
+            <label class="sr" for="message">Message</label>
+            <textarea id="message" placeholder="What's on your mind? Type here..."></textarea>
+            <ul class="attach-list" id="attachList" hidden></ul>
+
+            <div class="compose-actions">
+                <button type="button" class="btn ghost small" id="attachBtn">Attach</button>
+                <button type="button" class="link-btn" id="saveTpl">Save as template</button>
+                <input type="file" id="fileInput" multiple hidden>
+            </div>
+            <div class="meta-row">
+                <span id="counter">0 / 4,096</span>
+                <span class="kbd-hint">Ctrl or Cmd + Enter to send</span>
+            </div>
+            <p class="hint" id="htmlHint" hidden>Supports &lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;pre&gt; and &lt;a href&gt;. Write &amp;lt; and &amp;amp; for a literal &lt; and &amp;.</p>
+
+            <div class="checks">
+                <label class="check"><input type="checkbox" id="silent"> Send silently</label>
+                <label class="check"><input type="checkbox" id="noPreview"> Hide link previews</label>
+                <label class="check" id="asFileWrap" hidden><input type="checkbox" id="asFile"> Send images as files (no compression)</label>
+            </div>
+
+            <button type="submit" class="btn primary" id="sendBtn">
+                <span id="sendLabel">Send to Telegram</span>
+                <span class="spinner" id="spinner" hidden></span>
+            </button>
+        </form>
+
+        <div id="historyWrap" hidden>
+            <div class="section-head">
+                <h2>Recent messages</h2>
+                <button type="button" class="link-btn" id="clearHistory">Clear all</button>
+            </div>
+            <ul class="list" id="historyList"></ul>
+        </div>
+    </section>
+
+    <!-- ================= INBOX ================= -->
+    <section class="panel" id="panel-inbox" role="tabpanel" aria-labelledby="tab-inbox" hidden>
+        <div class="row inbox-bar">
+            <button type="button" class="btn ghost small" id="inboxRefresh">Refresh</button>
+            <label class="check"><input type="checkbox" id="autoPoll"> Check every 30 seconds</label>
+        </div>
+        <p class="hint" id="inboxStatus"></p>
+        <ul class="list" id="inboxList"></ul>
+        <p class="empty" id="inboxEmpty"></p>
+        <div class="row tools" id="inboxTools" style="justify-content:center">
+            <button type="button" class="link-btn" id="inboxClear">Clear all</button>
+        </div>
+    </section>
+
+    <!-- ================= LINKS ================= -->
+    <section class="panel" id="panel-links" role="tabpanel" aria-labelledby="tab-links" hidden>
+        <form id="linkForm" novalidate>
+            <div class="field">
+                <label for="linkUrl">GitHub URL</label>
+                <div class="input-row">
+                    <input id="linkUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="github.com/owner/repo, or just owner/repo">
+                    <button type="button" class="btn ghost small" id="pasteBtn">Paste</button>
+                </div>
+            </div>
+            <div class="field">
+                <label for="linkTitle">Name (optional)</label>
+                <input id="linkTitle" type="text" maxlength="80" autocomplete="off" placeholder="Filled in from the URL if left empty">
+            </div>
+            <div class="field">
+                <label for="linkTags">Tags (optional)</label>
+                <input id="linkTags" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tools, to-read, work">
+                <div class="tag-suggest" id="tagSuggest" hidden></div>
+            </div>
+            <div class="field">
+                <label for="linkNote">Note (optional)</label>
+                <input id="linkNote" type="text" maxlength="200" autocomplete="off" placeholder="Why you saved it">
+            </div>
+            <p class="error" id="linkError" role="alert" hidden></p>
+            <div class="row">
+                <button type="submit" class="btn primary" id="linkSubmit">Save link</button>
+                <button type="button" class="btn ghost" id="linkCancel" hidden>Cancel</button>
+            </div>
+        </form>
+
+        <div class="section-head">
+            <h2>Saved links <span class="muted" id="linkTotal"></span></h2>
+            <span>
+                <button type="button" class="link-btn" id="refreshInfo">Refresh details</button>
+                <button type="button" class="link-btn" id="selectToggle">Select</button>
+            </span>
+        </div>
+        <div class="search" id="linkSearchWrap" hidden>
+            <label class="sr" for="linkSearch">Search saved links</label>
+            <input id="linkSearch" type="search" placeholder="Search saved links" autocomplete="off">
+        </div>
+        <div class="tag-bar" id="tagBar" hidden></div>
+        <div class="bulk-bar" id="bulkBar" hidden>
+            <span class="bulk-count" id="bulkCount">0 selected</span>
+            <button type="button" class="link-btn" id="bulkAll">Select all</button>
+            <button type="button" class="link-btn" id="bulkAdd">Add to message</button>
+            <button type="button" class="link-btn" id="bulkCopy">Copy</button>
+            <button type="button" class="link-btn danger" id="bulkDelete">Delete</button>
+        </div>
+        <ul class="list" id="linkList"></ul>
+        <p class="empty" id="linkEmpty"></p>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section class="panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+        <div class="sect">
+            <h2>Bot</h2>
+            <form id="settingsForm" novalidate>
+                <div class="field">
+                    <label for="token">Bot token</label>
+                    <div class="input-row">
+                        <input id="token" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="123456789:AAE...">
+                        <button type="button" class="btn ghost small" id="toggleToken" aria-controls="token">Show</button>
+                    </div>
+                    <p class="hint">Create a bot with @BotFather in Telegram to get a token.</p>
+                </div>
+                <div class="row">
+                    <button type="submit" class="btn primary">Save token</button>
+                    <button type="button" class="btn ghost" id="testBtn">Test connection</button>
+                </div>
+                <p class="result" id="testResult" role="status" hidden></p>
+            </form>
+        </div>
+
+        <div class="sect">
+            <h2>Destinations</h2>
+            <p class="hint" style="margin:0 0 12px">People, groups or channels you can send to. Pick one from the To menu on the Send tab.</p>
+            <form id="destForm" novalidate>
+                <div class="field">
+                    <label for="destName">Name</label>
+                    <input id="destName" type="text" maxlength="40" autocomplete="off" placeholder="Me, Family group, Alerts channel">
+                </div>
+                <div class="field">
+                    <label for="chatId">Chat ID</label>
+                    <div class="input-row">
+                        <input id="chatId" type="text" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="123456789 or @channelname">
+                        <button type="button" class="btn ghost small" id="findChat">Find</button>
+                    </div>
+                    <p class="hint">Don't know it? Send any message to your bot in Telegram (or add the bot to a group and post there), then tap Find.</p>
+                </div>
+                <p class="error" id="destError" role="alert" hidden></p>
+                <div class="row">
+                    <button type="submit" class="btn primary" id="destSubmit">Add destination</button>
+                    <button type="button" class="btn ghost" id="destCancel" hidden>Cancel</button>
+                </div>
+            </form>
+            <ul class="list" id="destList" style="margin-top:16px"></ul>
+        </div>
+
+        <div class="sect">
+            <h2>Passcode lock</h2>
+            <p class="hint" id="lockHint" style="margin:0 0 12px">Encrypts your bot token in this browser and asks for a passcode when the app opens. Your messages, history and links are hidden behind the lock screen but are not encrypted.</p>
+            <form id="lockForm" novalidate>
+                <div class="field">
+                    <label for="lockPass">New passcode</label>
+                    <input id="lockPass" type="password" autocomplete="new-password" placeholder="At least 6 characters">
+                </div>
+                <div class="field">
+                    <label for="lockPass2">Repeat passcode</label>
+                    <input id="lockPass2" type="password" autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn primary" id="lockOnBtn">Turn on passcode lock</button>
+            </form>
+            <div id="lockOn" hidden>
+                <div class="field">
+                    <label for="lockAfter">Lock automatically after you leave the page for</label>
+                    <select id="lockAfter">
+                        <option value="0">Never</option>
+                        <option value="1">1 minute</option>
+                        <option value="5">5 minutes</option>
+                        <option value="15">15 minutes</option>
+                        <option value="60">1 hour</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <button type="button" class="btn ghost" id="lockNowBtn">Lock now</button>
+                    <button type="button" class="btn danger" id="lockOff">Turn off</button>
+                </div>
+            </div>
+            <p class="error" id="lockErr" role="alert" hidden style="margin-top:12px"></p>
+            <p class="panel-note" id="lockCfgNote" hidden>The token is still written in the CONFIG block at the top of this file. Delete it there, or it stays readable by anyone who opens the file.</p>
+        </div>
+
+        <div class="sect">
+            <h2>Automation</h2>
+            <p class="hint" style="margin:0 0 12px">Open this page with a link to prefill a message from a bookmark, an iPhone Shortcut or Tasker. Options: text, to (destination name), mode=html, silent=1, nopreview=1. It never sends by itself.</p>
+            <div class="input-row">
+                <input id="prefillLink" type="text" readonly aria-label="Example prefill link">
+                <button type="button" class="btn ghost small" id="copyPrefill">Copy</button>
+            </div>
+        </div>
+
+        <div class="sect">
+            <h2>Backup and restore</h2>
+            <p class="hint" style="margin:0 0 12px">Links, templates and destinations. Your bot token is never included.</p>
+            <div class="row">
+                <button type="button" class="btn ghost small" id="exportBtn">Export file</button>
+                <button type="button" class="btn ghost small" id="importBtn">Import file</button>
+                <button type="button" class="btn ghost small" id="backupTg">Send to Telegram</button>
+                <input type="file" id="importFile" accept="application/json,.json" hidden>
+            </div>
+        </div>
+
+        <p class="panel-note" id="storageWarn" hidden>This browser is blocking local storage, so settings, links and history will be lost when you close the page.</p>
+        <p class="panel-note">Your token is stored only in this browser and is sent only to api.telegram.org. Anyone who can open this page on your device can read it unless you turn on the passcode lock, so keep this file private.</p>
+
+        <div class="sect">
+            <button type="button" class="btn danger" id="eraseAll" style="width:100%">Erase all saved data</button>
+        </div>
+    </section>
+
+    <!-- ================= LOCK SCREEN ================= -->
+    <section class="lock" id="lockScreen" aria-labelledby="lockTitle" hidden>
+        <h2 id="lockTitle">Locked</h2>
+        <p class="hint">Enter your passcode to use Telegram Sender.</p>
+        <form id="unlockForm" novalidate>
+            <div class="field">
+                <label class="sr" for="unlockPass">Passcode</label>
+                <input id="unlockPass" type="password" autocomplete="current-password" placeholder="Passcode">
+            </div>
+            <p class="error" id="unlockErr" role="alert" hidden></p>
+            <button type="submit" class="btn primary" id="unlockBtn">Unlock</button>
+        </form>
+        <button type="button" class="link-btn" id="forgotPass" style="margin-top:8px">Forgot passcode? Erase saved data</button>
+    </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+    <span id="toastMsg"></span>
+    <button type="button" id="toastAction" hidden></button>
+</div>
+
+<script>
+(() => {
+    'use strict';
+
+    /* =====================================================================
+       Config. Optional defaults; anything saved in Settings takes priority.
+       CHAT_ID seeds your first destination. Leave BOT_TOKEN empty if you use
+       the passcode lock (the token is encrypted only when saved in Settings).
+       ===================================================================== */
+    const CONFIG = { BOT_TOKEN: '', CHAT_ID: '' };
+
+    const MAX_LEN = 4096;                 // text message limit
+    const CAPTION_MAX = 1024;             // media caption limit
+    const MAX_FILE = 50 * 1024 * 1024;    // bot upload limit
+    const PHOTO_MAX = 10 * 1024 * 1024;   // sendPhoto limit
+    const MAX_ATTACH = 10;
+    const HISTORY_LIMIT = 30, INBOX_LIMIT = 100, TEMPLATE_LIMIT = 30;
+    const REQUEST_TIMEOUT = 15000;
+    const PBKDF2_ITER = 250000;
+    const POLL_MS = 30000;
+    const INFO_TTL = 24 * 3600 * 1000;
+    const TOKEN_RE = /^\d+:[\w-]{20,}$/;
+    const CHAT_RE = /^(-?\d+|@[A-Za-z]\w{3,})$/;
+    const TABS = ['send', 'inbox', 'links', 'settings'];
+    const K = {
+        settings: 'tgs:settings', links: 'tgs:links', history: 'tgs:history', draft: 'tgs:draft',
+        tab: 'tgs:tab', dests: 'tgs:dests', tpl: 'tgs:tpl', vault: 'tgs:vault',
+        inbox: 'tgs:inbox', offset: 'tgs:offset', seen: 'tgs:seen'
+    };
+    const CRYPTO_OK = !!(window.crypto && window.crypto.subtle && window.crypto.getRandomValues);
+
+    const $ = (id) => document.getElementById(id);
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    /* =====================================================================
+       Storage: localStorage with an in-memory fallback
+       ===================================================================== */
+    const store = (() => {
+        const mem = {};
+        let ok = true;
+        try {
+            localStorage.setItem('__tgs_test', '1');
+            localStorage.removeItem('__tgs_test');
+        } catch (e) { ok = false; }
+        return {
+            persistent: ok,
+            get(key, fallback) {
+                try {
+                    const raw = ok ? localStorage.getItem(key) : mem[key];
+                    return raw == null ? fallback : JSON.parse(raw);
+                } catch (e) { return fallback; }
+            },
+            set(key, value) {
+                const raw = JSON.stringify(value);
+                if (ok) {
+                    try { localStorage.setItem(key, raw); return true; } catch (e) { /* quota: fall through */ }
+                }
+                mem[key] = raw;
+                return false;
+            },
+            remove(key) {
+                delete mem[key];
+                if (ok) { try { localStorage.removeItem(key); } catch (e) { /* ignore */ } }
+            }
+        };
+    })();
+
+    /* =====================================================================
+       DOM helpers (user text always goes through textContent)
+       ===================================================================== */
+    function h(tag, props = {}, ...kids) {
+        const el = document.createElement(tag);
+        for (const [k, v] of Object.entries(props)) {
+            if (v == null || v === false) continue;
+            if (k === 'class') el.className = v;
+            else if (k === 'text') el.textContent = v;
+            else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+            else el.setAttribute(k, v === true ? '' : v);
+        }
+        kids.flat().forEach((c) => { if (c != null) el.append(c); });
+        return el;
+    }
+
+    const ICONS = {
+        star:  '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+        copy:  '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+        send:  '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+        edit:  '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
+        trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+        ext:   '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
+        clip:  '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+        more:  '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        file:  '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+        x:     '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+        lock:  '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
+    };
+
+    function icon(name, size = 20) {
+        const wrap = document.createElement('span');
+        wrap.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size +
+            '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+            ICONS[name] + '</svg>';
+        return wrap.firstChild;
+    }
+
+    function iconBtn(name, label, onClick, extra = {}) {
+        const attrs = {
+            type: 'button', class: 'icon-btn' + (extra.danger ? ' danger' : ''),
+            'aria-label': label, title: label, onclick: onClick
+        };
+        if (extra.pressed !== undefined) attrs['aria-pressed'] = String(extra.pressed);
+        if (extra.expanded !== undefined) attrs['aria-expanded'] = String(extra.expanded);
+        return h('button', attrs, icon(name));
+    }
+
+    async function copyText(text) {
+        try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* fall back */ }
+        try {
+            const ta = h('textarea', { readonly: true, style: 'position:fixed;top:-1000px;opacity:0' });
+            ta.value = text;
+            document.body.append(ta);
+            ta.select();
+            ta.setSelectionRange(0, text.length);
+            const ok = document.execCommand('copy');
+            ta.remove();
+            return ok;
+        } catch (e) { return false; }
+    }
+
+    async function copyWithToast(text, what) {
+        showToast((await copyText(text)) ? (what || 'Copied') + '.' : 'Could not copy to the clipboard.', 'info');
+    }
+
+    const fmtTime = (ts) => new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const fmtSize = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+
+    function ago(ts) {
+        const s = Math.max(0, (Date.now() - ts) / 1000);
+        const units = [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]];
+        for (const [u, sec] of units) {
+            if (s >= sec) { const n = Math.floor(s / sec); return n + ' ' + u + (n > 1 ? 's' : '') + ' ago'; }
+        }
+        return 'just now';
+    }
+
+    function compact(n) {
+        try { return new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n); }
+        catch (e) { return String(n); }
+    }
+
+    async function busy(btn, label, fn) {
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = label;
+        try { await fn(); } finally { btn.disabled = false; btn.textContent = original; }
+    }
+
+    /* =====================================================================
+       Toast (optional action button, e.g. Undo)
+       ===================================================================== */
+    const toastEl = $('toast'), toastMsg = $('toastMsg'), toastAction = $('toastAction');
+    let toastTimer = null, toastActionFn = null;
+
+    function hideToast() { toastEl.classList.remove('show'); }
+
+    function showToast(msg, type = 'info', opts = {}) {
+        clearTimeout(toastTimer);
+        toastMsg.textContent = msg;
+        toastEl.className = 'toast show ' + type;
+        if (opts.action) {
+            toastAction.textContent = opts.action.label;
+            toastAction.hidden = false;
+            toastActionFn = opts.action.fn;
+        } else {
+            toastAction.hidden = true;
+            toastActionFn = null;
+        }
+        toastTimer = setTimeout(hideToast, opts.duration || (type === 'error' ? 5000 : 3000));
+    }
+
+    toastAction.addEventListener('click', () => {
+        const fn = toastActionFn;
+        hideToast();
+        if (fn) fn();
+    });
+
+    /* =====================================================================
+       State
+       ===================================================================== */
+    let vault = null, vaultKey = null, sessionToken = null;
+    let settings = null, dests = { list: [], active: null };
+    let links = [], history = [], tpl = [], inbox = [], attachments = [];
+    let seenId = 0;
+    let editingLinkId = null, editing = null, editingDestId = null;
+    let sending = false, polling = false, currentTab = 'send';
+    let selectMode = false, activeTag = null, hiddenAt = 0;
+    const selected = new Set(), expanded = new Set();
+
+    const isLocked = () => !!vault && !vaultKey;
+
+    function loadSettings() {
+        const stored = store.get(K.settings, {});
+        const s = Object.assign({
+            token: CONFIG.BOT_TOKEN, mode: 'plain', silent: false, noPreview: false,
+            asFile: false, tplInstant: false, autoPoll: false, lockAfter: 5
+        }, stored);
+        if (vault) s.token = sessionToken || '';
+        return s;
+    }
+
+    // Only the keys you change are stored, so editing CONFIG keeps working for the rest.
+    function saveSettings(patch) {
+        store.set(K.settings, Object.assign({}, store.get(K.settings, {}), patch));
+        settings = loadSettings();
+        refreshStatus();
+    }
+
+    function loadDests() {
+        let d = store.get(K.dests, null);
+        let fresh = false;
+        if (!d || !Array.isArray(d.list)) {
+            const legacy = String(store.get(K.settings, {}).chatId || CONFIG.CHAT_ID || '').trim();
+            d = { list: CHAT_RE.test(legacy) ? [{ id: uid(), name: 'Me', chatId: legacy }] : [], active: null };
+            fresh = true;
+        }
+        d.list = d.list
+            .filter((x) => x && CHAT_RE.test(String(x.chatId)))
+            .map((x) => ({ id: String(x.id || uid()), name: String(x.name || x.chatId).slice(0, 40), chatId: String(x.chatId) }));
+        if (!d.list.some((x) => x.id === d.active)) d.active = d.list[0] ? d.list[0].id : null;
+        if (fresh && d.list.length) store.set(K.dests, d);
+        return d;
+    }
+
+    const saveDests = () => store.set(K.dests, dests);
+    const activeDest = () => dests.list.find((d) => d.id === dests.active) || null;
+
+    function isConfigured() {
+        return !isLocked() && TOKEN_RE.test(settings.token || '') && !!activeDest();
+    }
+
+    /* =====================================================================
+       Telegram API
+       ===================================================================== */
+    class TgError extends Error {
+        constructor(message, code, retryAfter) {
+            super(message);
+            this.name = 'TgError';
+            this.code = code;
+            this.retryAfter = retryAfter;
+        }
+    }
+
+    const parseTgResponse = (text, status) => {
+        let data;
+        try { data = JSON.parse(text); }
+        catch (e) { throw new TgError('Unexpected response from Telegram (HTTP ' + status + ').', status); }
+        if (!data.ok) throw new TgError(data.description || 'Unknown error', data.error_code, data.parameters && data.parameters.retry_after);
+        return data.result;
+    };
+
+    async function tg(method, payload = {}, { token = settings.token, timeout = REQUEST_TIMEOUT } = {}) {
+        if (!token) throw new TgError('Add your bot token in Settings first.');
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeout);
+        try {
+            const res = await fetch('https://api.telegram.org/bot' + token + '/' + method, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: ctrl.signal
+            });
+            return parseTgResponse(await res.text(), res.status);
+        } catch (e) {
+            if (e instanceof TgError) throw e;
+            if (e && e.name === 'AbortError') throw new TgError('The request timed out. Check your connection and try again.');
+            throw new TgError('Network error. Check your connection.');
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    // Multipart upload with progress (XHR, because fetch cannot report upload progress).
+    function tgUpload(method, form, { token = settings.token, onProgress, timeout = 300000 } = {}) {
+        return new Promise((resolve, reject) => {
+            if (!token) { reject(new TgError('Add your bot token in Settings first.')); return; }
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'https://api.telegram.org/bot' + token + '/' + method);
+            xhr.timeout = timeout;
+            xhr.responseType = 'text';
+            if (onProgress && xhr.upload) {
+                xhr.upload.onprogress = (e) => { if (e.lengthComputable && e.total) onProgress(e.loaded / e.total); };
+            }
+            xhr.onload = () => {
+                try { resolve(parseTgResponse(xhr.responseText, xhr.status)); } catch (e) { reject(e); }
+            };
+            xhr.onerror = () => reject(new TgError('Network error. Check your connection.'));
+            xhr.ontimeout = () => reject(new TgError('The upload timed out. Check your connection and try again.'));
+            xhr.send(form);
+        });
+    }
+
+    // Retries once when Telegram asks us to slow down (HTTP 429).
+    async function withRetry(fn) {
+        try {
+            return await fn();
+        } catch (err) {
+            if (err instanceof TgError && err.code === 429 && err.retryAfter && err.retryAfter <= 15) {
+                showToast('Telegram asked us to wait. Retrying in ' + err.retryAfter + 's...', 'info', { duration: err.retryAfter * 1000 });
+                await sleep(err.retryAfter * 1000 + 300);
+                return fn();
+            }
+            throw err;
+        }
+    }
+
+    const PARSE_ERR_RE = /can't parse entities|unsupported start tag|unmatched end tag|can't find end tag/i;
+
+    // In HTML mode, broken tags or a stray "<" / "&" shouldn't lose the message: resend as plain text.
+    async function parseFallback(mode, fn) {
+        if (mode !== 'html') return { res: await fn(false), fell: false };
+        try {
+            return { res: await fn(true), fell: false };
+        } catch (err) {
+            if (err instanceof TgError && PARSE_ERR_RE.test(err.message)) return { res: await fn(false), fell: true };
+            throw err;
+        }
+    }
+
+    function friendlyError(err) {
+        if (!(err instanceof TgError)) return 'Something went wrong. Please try again.';
+        const m = err.message || '';
+        let out = m;
+        if (err.code === 401 || /unauthorized/i.test(m)) out = 'Telegram rejected the bot token. Check it in Settings.';
+        else if (/chat not found/i.test(m)) out = 'Chat not found. Check the chat ID, and make sure you have started a conversation with your bot.';
+        else if (/not modified/i.test(m)) out = 'Nothing changed. The new text matches the message in Telegram.';
+        else if (/can't be deleted/i.test(m)) out = 'Telegram only lets bots delete messages that are less than 48 hours old.';
+        else if (/message to (edit|delete) not found/i.test(m)) out = 'That message no longer exists in Telegram. It may already have been deleted.';
+        else if (/webhook/i.test(m)) out = 'This bot has a webhook set, so incoming messages cannot be read here. Remove the webhook to use the Inbox.';
+        else if (err.code === 409) out = 'Another app is already reading this bot\'s messages. Stop it, then try again.';
+        else if (err.code === 413 || /too big|too large/i.test(m)) out = 'That file is too big for a Telegram bot (50 MB limit).';
+        else if (/caption is too long/i.test(m)) out = 'The caption is too long (1,024 characters maximum).';
+        else if (/message is too long/i.test(m)) out = 'That message is too long for Telegram.';
+        else if (err.code === 403) out = 'The bot is not allowed to message this chat: ' + m;
+        else if (err.code === 429) out = 'Too many requests. Try again in ' + (err.retryAfter || 'a few') + ' seconds.';
+        if (err.sentParts) out += ' (' + err.sentParts + ' of ' + err.totalParts + ' items were already sent.)';
+        return out;
+    }
+
+    // Splits at paragraph, line, then word boundaries so long messages are never rejected.
+    function splitMessage(text, limit = MAX_LEN) {
+        const parts = [];
+        let rest = text;
+        while (rest.length > limit) {
+            let cut = rest.lastIndexOf('\n\n', limit);
+            if (cut < limit * 0.5) cut = rest.lastIndexOf('\n', limit);
+            if (cut < limit * 0.5) cut = rest.lastIndexOf(' ', limit);
+            if (cut < limit * 0.5) {
+                cut = limit;
+                const c = rest.charCodeAt(cut - 1);
+                if (c >= 0xD800 && c <= 0xDBFF) cut--; // never split an emoji in half
+            }
+            parts.push(rest.slice(0, cut).trimEnd());
+            rest = rest.slice(cut).trimStart();
+        }
+        if (rest) parts.push(rest);
+        return parts.filter(Boolean);
+    }
+
+    function pickKind(file, opts) {
+        if (opts.asFile) return 'document';
+        if (/^image\/(jpeg|png|webp)$/.test(file.type) && file.size <= PHOTO_MAX) return 'photo';
+        if (file.type === 'video/mp4') return 'video';
+        return 'document';
+    }
+
+    async function sendOneFile(file, caption, opts, dest, onProgress) {
+        const attempt = (kind, html) => {
+            const fd = new FormData();
+            fd.append('chat_id', dest.chatId);
+            if (opts.silent) fd.append('disable_notification', 'true');
+            if (caption) { fd.append('caption', caption); if (html) fd.append('parse_mode', 'HTML'); }
+            if (kind === 'video') fd.append('supports_streaming', 'true');
+            fd.append(kind, file, file.name || kind);
+            const method = 'send' + kind.charAt(0).toUpperCase() + kind.slice(1);
+            return withRetry(() => tgUpload(method, fd, { onProgress }));
+        };
+        const kind = pickKind(file, opts);
+        try {
+            return await parseFallback(opts.mode, (html) => attempt(kind, html));
+        } catch (err) {
+            // Photo/video rejected (odd dimensions or codec)? Send the original as a document instead.
+            if (kind !== 'document' && err instanceof TgError && err.code === 400 && !PARSE_ERR_RE.test(err.message)) {
+                return parseFallback(opts.mode, (html) => attempt('document', html));
+            }
+            throw err;
+        }
+    }
+
+    async function sendAll({ text, files, opts, dest, onStatus }) {
+        const sent = [];
+        let fellBack = false;
+        const useCaption = files.length > 0 && !!text && text.length <= CAPTION_MAX;
+        const textParts = text && !useCaption ? splitMessage(text) : [];
+        const total = textParts.length + files.length;
+        let step = 0;
+        const label = (pct) => onStatus(total > 1
+            ? 'Sending ' + step + ' of ' + total + (pct != null ? ' (' + pct + '%)' : '...')
+            : (pct != null ? 'Uploading ' + pct + '%' : 'Sending...'));
+        try {
+            for (const part of textParts) {
+                step++;
+                label();
+                const r = await parseFallback(opts.mode, (html) => withRetry(() => tg('sendMessage', Object.assign({
+                    chat_id: dest.chatId, text: part, disable_notification: !!opts.silent,
+                    link_preview_options: { is_disabled: !!opts.noPreview }
+                }, html ? { parse_mode: 'HTML' } : {}))));
+                if (r.fell) fellBack = true;
+                sent.push({ chat: r.res.chat.id, id: r.res.message_id, kind: 'text' });
+            }
+            for (let i = 0; i < files.length; i++) {
+                step++;
+                label(0);
+                const r = await sendOneFile(files[i], i === 0 && useCaption ? text : '', opts, dest, (p) => label(Math.round(p * 100)));
+                if (r.fell) fellBack = true;
+                sent.push({ chat: r.res.chat.id, id: r.res.message_id, kind: 'media' });
+            }
+        } catch (err) {
+            if (err instanceof TgError) {
+                err.partial = sent;
+                if (sent.length) { err.sentParts = sent.length; err.totalParts = total; }
+            }
+            throw err;
+        }
+        return { sent, fellBack, total };
+    }
+
+    /* =====================================================================
+       Passcode lock (AES-GCM, key from PBKDF2). Only the bot token is encrypted.
+       ===================================================================== */
+    const b64 = (buf) => { let s = ''; new Uint8Array(buf).forEach((b) => { s += String.fromCharCode(b); }); return btoa(s); };
+    const unb64 = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+
+    async function deriveKey(pass, salt) {
+        const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+        return crypto.subtle.deriveKey(
+            { name: 'PBKDF2', salt, iterations: PBKDF2_ITER, hash: 'SHA-256' },
+            base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    }
+
+    async function encryptWith(key, text) {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(text));
+        return { iv: b64(iv), ct: b64(ct) };
+    }
+
+    async function decryptWith(key, box) {
+        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(box.iv) }, key, unb64(box.ct));
+        return new TextDecoder().decode(pt);
+    }
+
+    function readVault() {
+        const v = store.get(K.vault, null);
+        return v && typeof v.salt === 'string' && typeof v.iv === 'string' && typeof v.ct === 'string' ? v : null;
+    }
+
+    // Saves the token: re-encrypted when the lock is on, plain in settings otherwise.
+    async function persistToken(token) {
+        if (vault && vaultKey) {
+            const box = await encryptWith(vaultKey, token);
+            vault = Object.assign({}, vault, box);
+            store.set(K.vault, vault);
+            sessionToken = token;
+            settings = loadSettings();
+            refreshStatus();
+        } else {
+            saveSettings({ token });
+        }
+    }
+
+    async function enableLock(pass) {
+        const token = settings.token;
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const key = await deriveKey(pass, salt);
+        const box = await encryptWith(key, token);
+        vault = { v: 1, salt: b64(salt), iv: box.iv, ct: box.ct };
+        store.set(K.vault, vault);
+        vaultKey = key;
+        sessionToken = token;
+        saveSettings({ token: '' }); // drop the plain-text copy
+    }
+
+    function disableLock() {
+        const token = sessionToken || '';
+        vault = null; vaultKey = null; sessionToken = null;
+        store.remove(K.vault);
+        saveSettings({ token });
+    }
+
+    function lockNow() {
+        if (!vault) return;
+        vaultKey = null;
+        sessionToken = null;
+        settings = loadSettings();
+        $('token').value = '';
+        applyLockUI();
+    }
+
+    function applyLockUI() {
+        const locked = isLocked();
+        $('app').classList.toggle('locked', locked);
+        $('lockScreen').hidden = !locked;
+        $('lockNow').hidden = !(vault && !locked);
+        $('lockForm').hidden = !!vault;
+        $('lockOn').hidden = !vault;
+        $('lockCfgNote').hidden = !(vault && CONFIG.BOT_TOKEN);
+        $('lockAfter').value = String(settings.lockAfter);
+        if (!CRYPTO_OK) {
+            $('lockHint').textContent = 'The passcode lock needs a secure browser context (https:// or a local file in a modern browser). It is not available here.';
+            $('lockOnBtn').disabled = true;
+        }
+        if (locked) {
+            $('unlockPass').value = '';
+            if (!CRYPTO_OK) showUnlockErr('This browser cannot unlock the vault. Open the file in a modern browser, or erase saved data below.');
+            setTimeout(() => $('unlockPass').focus(), 0);
+        }
+    }
+
+    function showUnlockErr(msg) { $('unlockErr').textContent = msg; $('unlockErr').hidden = !msg; }
+    function showLockErr(msg) { $('lockErr').textContent = msg; $('lockErr').hidden = !msg; }
+
+    $('unlockForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pass = $('unlockPass').value;
+        if (!pass || !CRYPTO_OK) return;
+        const btn = $('unlockBtn');
+        btn.disabled = true;
+        btn.textContent = 'Unlocking...';
+        try {
+            const key = await deriveKey(pass, unb64(vault.salt));
+            const token = await decryptWith(key, vault);
+            vaultKey = key;
+            sessionToken = token;
+            settings = loadSettings();
+            showUnlockErr('');
+            afterUnlock();
+        } catch (err) {
+            await sleep(500);
+            showUnlockErr('Wrong passcode. Try again.');
+            $('unlockPass').select();
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Unlock';
+        }
+    });
+
+    $('forgotPass').addEventListener('click', () => eraseEverything());
+    $('lockNow').addEventListener('click', lockNow);
+    $('lockNowBtn').addEventListener('click', lockNow);
+
+    $('lockForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showLockErr('');
+        const p1 = $('lockPass').value, p2 = $('lockPass2').value;
+        if (!CRYPTO_OK) { showLockErr('The passcode lock is not available in this browser.'); return; }
+        if (!TOKEN_RE.test(settings.token || '')) { showLockErr('Save your bot token first. The lock protects the saved token.'); return; }
+        if (p1.length < 6) { showLockErr('Use at least 6 characters.'); return; }
+        if (p1 !== p2) { showLockErr('The two passcodes do not match.'); return; }
+        const btn = $('lockOnBtn');
+        btn.disabled = true;
+        try {
+            await enableLock(p1);
+            $('lockPass').value = '';
+            $('lockPass2').value = '';
+            applyLockUI();
+            showToast('Passcode lock is on. Do not forget the passcode: it cannot be recovered.', 'success', { duration: 6000 });
+        } catch (err) {
+            console.error(err);
+            showLockErr('Could not turn on the lock in this browser.');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    $('lockOff').addEventListener('click', () => {
+        if (!window.confirm('Turn off the passcode lock? Your token will be stored without encryption again.')) return;
+        disableLock();
+        applyLockUI();
+        showToast('Passcode lock is off.', 'info');
+    });
+
+    $('lockAfter').addEventListener('change', () => saveSettings({ lockAfter: Number($('lockAfter').value) || 0 }));
+
+    function afterUnlock() {
+        applyLockUI();
+        fillSettingsForm();
+        renderAll();
+        if (applyPrefill()) switchTab('send');
+        else if (currentTab === 'inbox') pollInbox();
+    }
+
+    /* =====================================================================
+       Tabs
+       ===================================================================== */
+    function switchTab(name, { focus = false } = {}) {
+        if (!TABS.includes(name)) name = 'send';
+        currentTab = name;
+        TABS.forEach((t) => {
+            const on = t === name;
+            $('tab-' + t).setAttribute('aria-selected', String(on));
+            $('tab-' + t).tabIndex = on ? 0 : -1;
+            $('panel-' + t).hidden = !on;
+        });
+        store.set(K.tab, name);
+        if (focus) $('tab-' + name).focus();
+        if (name === 'inbox') { markSeen(); pollInbox(); }
+    }
+
+    $('tabs').addEventListener('click', (e) => {
+        const t = e.target.closest('[role="tab"]');
+        if (t) switchTab(t.id.replace('tab-', ''));
+    });
+
+    $('tabs').addEventListener('keydown', (e) => {
+        const i = TABS.findIndex((t) => $('tab-' + t) === document.activeElement);
+        if (i < 0) return;
+        let n = null;
+        if (e.key === 'ArrowRight') n = (i + 1) % TABS.length;
+        else if (e.key === 'ArrowLeft') n = (i - 1 + TABS.length) % TABS.length;
+        else if (e.key === 'Home') n = 0;
+        else if (e.key === 'End') n = TABS.length - 1;
+        if (n !== null) { e.preventDefault(); switchTab(TABS[n], { focus: true }); }
+    });
+
+    function refreshStatus() {
+        const ok = isConfigured();
+        const pill = $('status');
+        pill.dataset.state = ok ? 'ok' : 'setup';
+        pill.textContent = ok ? 'Ready' : 'Setup needed';
+        $('setupBanner').hidden = ok || isLocked();
+    }
+
+    $('setupBanner').addEventListener('click', () => switchTab('settings'));
+
+    /* =====================================================================
+       Send tab
+       ===================================================================== */
+    const $msg = $('message'), $mode = $('mode'), $silent = $('silent'), $noPreview = $('noPreview');
+    const $counter = $('counter'), $sendBtn = $('sendBtn'), $sendLabel = $('sendLabel'), $spinner = $('spinner');
+    const $dest = $('dest'), $asFile = $('asFile'), $tplInstant = $('tplInstant');
+    let draftTimer = null;
+
+    function updateCounter() {
+        const len = $msg.value.length;
+        if (attachments.length && len > CAPTION_MAX) {
+            $counter.textContent = len.toLocaleString() + ' characters. Too long for a caption (' + CAPTION_MAX.toLocaleString() + '), so the text goes out as its own message first.';
+            $counter.className = 'over';
+        } else if (len > MAX_LEN && !editing) {
+            const n = splitMessage($msg.value.trim()).length;
+            $counter.textContent = len.toLocaleString() + ' characters. Will be sent as ' + n + ' messages.';
+            $counter.className = 'over';
+        } else {
+            const cap = attachments.length ? CAPTION_MAX : MAX_LEN;
+            $counter.textContent = len.toLocaleString() + ' / ' + cap.toLocaleString() + (attachments.length ? ' (caption)' : '');
+            $counter.className = '';
+        }
+    }
+
+    function saveDraftNow() {
+        clearTimeout(draftTimer);
+        if (editing) return; // never store an edit-in-progress as the draft
+        if ($msg.value) store.set(K.draft, $msg.value); else store.remove(K.draft);
+    }
+
+    $msg.addEventListener('input', () => {
+        updateCounter();
+        clearTimeout(draftTimer);
+        draftTimer = setTimeout(saveDraftNow, 400);
+    });
+
+    $msg.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $sendBtn.click(); }
+    });
+
+    function applyModeUI() {
+        const html = $mode.value === 'html';
+        $('fmtTools').hidden = !html;
+        $('htmlHint').hidden = !html;
+    }
+
+    $mode.addEventListener('change', () => { applyModeUI(); saveSettings({ mode: $mode.value }); });
+    $silent.addEventListener('change', () => saveSettings({ silent: $silent.checked }));
+    $noPreview.addEventListener('change', () => saveSettings({ noPreview: $noPreview.checked }));
+    $asFile.addEventListener('change', () => saveSettings({ asFile: $asFile.checked }));
+    $tplInstant.addEventListener('change', () => saveSettings({ tplInstant: $tplInstant.checked }));
+
+    $dest.addEventListener('change', () => {
+        if (dests.list.some((d) => d.id === $dest.value)) { dests.active = $dest.value; saveDests(); refreshStatus(); renderDests(); }
+    });
+
+    function renderDestSelect() {
+        $dest.replaceChildren();
+        if (!dests.list.length) {
+            $dest.append(h('option', { value: '', text: 'No destination yet' }));
+            $dest.disabled = true;
+            return;
+        }
+        $dest.disabled = false;
+        dests.list.forEach((d) => $dest.append(h('option', { value: d.id, text: d.name })));
+        $dest.value = dests.active;
+    }
+
+    /* ---------- HTML formatting toolbar ---------- */
+    const FORMATS = { b: ['<b>', '</b>'], i: ['<i>', '</i>'], u: ['<u>', '</u>'], s: ['<s>', '</s>'], code: ['<code>', '</code>'] };
+    const escAttr = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    function wrapSelection(open, close) {
+        const s = $msg.selectionStart, e = $msg.selectionEnd;
+        const sel = $msg.value.slice(s, e) || 'text';
+        $msg.setRangeText(open + sel + close, s, e, 'end');
+        $msg.focus();
+        $msg.setSelectionRange(s + open.length, s + open.length + sel.length);
+        $msg.dispatchEvent(new Event('input'));
+    }
+
+    $('fmtTools').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-fmt]');
+        if (!btn) return;
+        const f = btn.dataset.fmt;
+        if (f === 'a') {
+            const url = window.prompt('Link address (https://...)');
+            if (url && url.trim()) wrapSelection('<a href="' + escAttr(url.trim()) + '">', '</a>');
+        } else {
+            wrapSelection(FORMATS[f][0], FORMATS[f][1]);
+        }
+    });
+
+    /* ---------- Attachments ---------- */
+    function clearAttachments() {
+        attachments.forEach((a) => { if (a.url) URL.revokeObjectURL(a.url); });
+        attachments = [];
+        renderAttachments();
+    }
+
+    function removeAttachment(id) {
+        const a = attachments.find((x) => x.id === id);
+        if (a && a.url) URL.revokeObjectURL(a.url);
+        attachments = attachments.filter((x) => x.id !== id);
+        renderAttachments();
+    }
+
+    function addFiles(fileList) {
+        if (editing) { showToast('Finish or cancel editing before attaching files.', 'error'); return; }
+        for (const file of Array.from(fileList || [])) {
+            if (attachments.length >= MAX_ATTACH) { showToast('You can attach up to ' + MAX_ATTACH + ' files at once.', 'error'); break; }
+            if (!file.size) continue;
+            if (file.size > MAX_FILE) { showToast((file.name || 'That file') + ' is over 50 MB, the limit for Telegram bots.', 'error'); continue; }
+            const isImg = /^image\/(jpeg|png|webp|gif)$/.test(file.type);
+            attachments.push({ id: uid(), file, url: isImg ? URL.createObjectURL(file) : '' });
+        }
+        renderAttachments();
+    }
+
+    function renderAttachments() {
+        const list = $('attachList');
+        list.replaceChildren();
+        list.hidden = !attachments.length;
+        $('asFileWrap').hidden = !attachments.some((a) => /^image\//.test(a.file.type));
+        attachments.forEach((a) => list.append(h('li', {},
+            a.url ? h('img', { class: 'attach-thumb', src: a.url, alt: '' }) : h('span', { class: 'attach-ico' }, icon('file', 22)),
+            h('span', { class: 'attach-name', text: a.file.name || 'file' }),
+            h('span', { class: 'attach-size', text: fmtSize(a.file.size) }),
+            iconBtn('x', 'Remove ' + (a.file.name || 'file'), () => removeAttachment(a.id))
+        )));
+        updateCounter();
+    }
+
+    $('attachBtn').addEventListener('click', () => $('fileInput').click());
+    $('fileInput').addEventListener('change', () => { addFiles($('fileInput').files); $('fileInput').value = ''; });
+
+    $msg.addEventListener('paste', (e) => {
+        const cd = e.clipboardData;
+        if (cd && cd.files && cd.files.length && !cd.getData('text/plain')) { e.preventDefault(); addFiles(cd.files); }
+    });
+
+    const hasFiles = (e) => !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'));
+    const $sendForm = $('sendForm');
+    ['dragenter', 'dragover'].forEach((ev) => $sendForm.addEventListener(ev, (e) => {
+        if (hasFiles(e)) { e.preventDefault(); $sendForm.classList.add('drop'); }
+    }));
+    $sendForm.addEventListener('dragleave', () => $sendForm.classList.remove('drop'));
+    $sendForm.addEventListener('drop', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        $sendForm.classList.remove('drop');
+        addFiles(e.dataTransfer.files);
+    });
+
+    /* ---------- Sending ---------- */
+    const idleLabel = () => editing ? 'Update message' : 'Send to Telegram';
+
+    function setSending(on, label) {
+        sending = on;
+        $sendBtn.disabled = on;
+        $spinner.hidden = !on;
+        $sendLabel.textContent = on ? (label || 'Sending...') : idleLabel();
+        $sendForm.setAttribute('aria-busy', String(on));
+    }
+
+    $sendForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (sending) return;
+        const text = $msg.value.trim();
+        if (editing) { submitEdit(text); return; }
+        if (!text && !attachments.length) { showToast('Type a message or attach a file first.', 'error'); $msg.focus(); return; }
+        submitMessage({ text, files: attachments.map((a) => a.file), fromForm: true });
+    });
+
+    async function submitMessage({ text, files, fromForm }) {
+        if (sending) return;
+        const dest = activeDest();
+        if (!isConfigured() || !dest) {
+            showToast('Add your bot token and a destination in Settings first.', 'error');
+            switchTab('settings');
+            return;
+        }
+        if (navigator.onLine === false) { showToast('You appear to be offline.', 'error'); return; }
+
+        const opts = { mode: $mode.value, silent: $silent.checked, noPreview: $noPreview.checked, asFile: $asFile.checked };
+        setSending(true);
+        try {
+            const res = await sendAll({ text, files, opts, dest, onStatus: (s) => { $sendLabel.textContent = s; } });
+            addHistory({ text, mode: opts.mode, dest, sent: res.sent, files: files.map((f) => f.name || 'file') });
+            if (fromForm) { $msg.value = ''; clearAttachments(); saveDraftNow(); updateCounter(); }
+            showToast((res.sent.length > 1 ? 'Sent ' + res.sent.length + ' items to ' : 'Sent to ') + dest.name + '.' +
+                (res.fellBack ? ' The formatting had errors, so it went as plain text.' : ''), 'success');
+            if (window.matchMedia('(hover: hover)').matches) $msg.focus();
+        } catch (err) {
+            console.error(err);
+            if (err && err.partial && err.partial.length) {
+                addHistory({ text, mode: opts.mode, dest, sent: err.partial, files: [] });
+            }
+            showToast(friendlyError(err), 'error', { duration: 6000 });
+        } finally {
+            setSending(false);
+        }
+    }
+
+    /* ---------- Edit a sent message ---------- */
+    function startEditSent(item) {
+        const s = item.sent && item.sent.length === 1 && item.sent[0].kind === 'text' ? item.sent[0] : null;
+        if (!s) return;
+        if (!editing) editing = { prevDraft: $msg.value, prevMode: $mode.value };
+        Object.assign(editing, { hid: item.id, chat: s.chat, msgId: s.id });
+        clearAttachments();
+        $msg.value = item.text;
+        $mode.value = item.mode === 'html' ? 'html' : 'plain';
+        applyModeUI();
+        $('editBanner').hidden = false;
+        $sendLabel.textContent = idleLabel();
+        $('attachBtn').disabled = true;
+        updateCounter();
+        $msg.focus();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function endEdit() {
+        if (!editing) return;
+        const prev = editing;
+        editing = null;
+        $msg.value = prev.prevDraft || '';
+        $mode.value = prev.prevMode || 'plain';
+        applyModeUI();
+        $('editBanner').hidden = true;
+        $('attachBtn').disabled = false;
+        $sendLabel.textContent = idleLabel();
+        updateCounter();
+    }
+
+    $('editCancel').addEventListener('click', endEdit);
+
+    async function submitEdit(text) {
+        if (!text) { showToast('A message cannot be empty.', 'error'); return; }
+        if (text.length > MAX_LEN) { showToast('An edited message can be at most ' + MAX_LEN.toLocaleString() + ' characters.', 'error'); return; }
+        if (!isConfigured()) { switchTab('settings'); return; }
+        const ed = editing, mode = $mode.value, noPreview = $noPreview.checked;
+        setSending(true, 'Updating...');
+        try {
+            const r = await parseFallback(mode, (html) => withRetry(() => tg('editMessageText', Object.assign({
+                chat_id: ed.chat, message_id: ed.msgId, text, link_preview_options: { is_disabled: noPreview }
+            }, html ? { parse_mode: 'HTML' } : {}))));
+            const it = history.find((x) => x.id === ed.hid);
+            if (it) { it.text = text; it.mode = mode; it.edited = true; store.set(K.history, history); renderHistory(); }
+            endEdit();
+            showToast(r.fell ? 'Message updated as plain text (formatting had errors).' : 'Message updated in Telegram.', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast(friendlyError(err), 'error', { duration: 6000 });
+        } finally {
+            setSending(false);
+        }
+    }
+
+    /* ---------- History ---------- */
+    function addHistory({ text, mode, dest, sent, files }) {
+        history.unshift({ id: uid(), text: text || '', mode, ts: Date.now(), dest: dest.name, sent: sent || [], files: (files || []).slice(0, 10) });
+        history = history.slice(0, HISTORY_LIMIT);
+        store.set(K.history, history);
+        renderHistory();
+    }
+
+    function renderHistory() {
+        $('historyWrap').hidden = !history.length;
+        const list = $('historyList');
+        list.replaceChildren();
+        history.forEach((item) => {
+            const editable = !!(item.sent && item.sent.length === 1 && item.sent[0].kind === 'text' && !(item.files && item.files.length));
+            const canUnsend = !!(item.sent && item.sent.length);
+            list.append(h('li', {},
+                item.text ? h('div', { class: 'h-text', text: item.text }) : null,
+                item.files && item.files.length ? h('div', { class: 'h-files', text: 'Attached: ' + item.files.join(', ') }) : null,
+                h('div', { class: 'h-foot' },
+                    h('span', { class: 'h-meta', text: fmtTime(item.ts) + (item.dest ? ', to ' + item.dest : '') + (item.mode === 'html' ? ', HTML' : '') + (item.edited ? ', edited' : '') }),
+                    h('span', { class: 'h-actions' },
+                        item.text ? h('button', { type: 'button', class: 'link-btn', text: 'Reuse', onclick: () => reuseMessage(item) }) : null,
+                        editable ? h('button', { type: 'button', class: 'link-btn', text: 'Edit', onclick: () => startEditSent(item) }) : null,
+                        canUnsend ? h('button', { type: 'button', class: 'link-btn', text: 'Unsend', onclick: () => unsendItem(item) }) : null,
+                        h('button', { type: 'button', class: 'link-btn', text: 'Remove', onclick: () => removeHistory(item.id) })
+                    )
+                )
+            ));
+        });
+    }
+
+    function reuseMessage(item) {
+        if (editing) endEdit();
+        $msg.value = item.text;
+        $mode.value = item.mode === 'html' ? 'html' : 'plain';
+        applyModeUI();
+        saveSettings({ mode: $mode.value });
+        updateCounter();
+        saveDraftNow();
+        $msg.focus();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function removeHistory(id) {
+        history = history.filter((x) => x.id !== id);
+        store.set(K.history, history);
+        renderHistory();
+    }
+
+    async function unsendItem(item) {
+        if (!isConfigured()) { switchTab('settings'); return; }
+        if (!window.confirm('Delete this message from Telegram? This cannot be undone.')) return;
+        let failed = 0, lastErr = null;
+        for (const s of item.sent) {
+            try { await tg('deleteMessage', { chat_id: s.chat, message_id: s.id }); }
+            catch (err) {
+                if (err instanceof TgError && /message to delete not found/i.test(err.message)) continue; // already gone
+                failed++; lastErr = err;
+            }
+        }
+        if (failed) { showToast(friendlyError(lastErr), 'error', { duration: 6000 }); return; }
+        if (editing && editing.hid === item.id) endEdit();
+        removeHistory(item.id);
+        showToast('Deleted from the chat.', 'success');
+    }
+
+    $('clearHistory').addEventListener('click', () => {
+        if (!window.confirm('Clear all recent messages from this list? Messages already in Telegram stay there.')) return;
+        history = [];
+        store.set(K.history, history);
+        renderHistory();
+    });
+
+    /* ---------- Templates ---------- */
+    const expandTpl = (t) => {
+        const now = new Date();
+        return t.replace(/\{date\}/gi, now.toLocaleDateString())
+            .replace(/\{time\}/gi, now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+    };
+
+    function sanitizeTpl(arr) {
+        if (!Array.isArray(arr)) return [];
+        return arr.filter((t) => t && typeof t.text === 'string' && t.text.trim())
+            .map((t) => ({ id: String(t.id || uid()), label: String(t.label || t.text).slice(0, 30), text: t.text.slice(0, MAX_LEN) }))
+            .slice(0, TEMPLATE_LIMIT);
+    }
+
+    function renderTemplates() {
+        $('tplCount').textContent = tpl.length ? '(' + tpl.length + ')' : '';
+        $('tplEmpty').hidden = tpl.length > 0;
+        const box = $('tplChips');
+        box.replaceChildren();
+        tpl.forEach((t) => box.append(h('span', { class: 'chip' },
+            h('button', { type: 'button', class: 'chip-main', title: t.text, text: t.label, onclick: () => useTemplate(t) }),
+            h('button', { type: 'button', class: 'chip-x', 'aria-label': 'Delete template ' + t.label, title: 'Delete template', text: '\u00D7', onclick: () => deleteTemplate(t.id) })
+        )));
+    }
+
+    function useTemplate(t) {
+        const text = expandTpl(t.text);
+        if ($tplInstant.checked && !editing) {
+            submitMessage({ text, files: [], fromForm: false });
+        } else {
+            const cur = $msg.value.replace(/\s+$/, '');
+            $msg.value = cur ? cur + '\n' + text : text;
+            updateCounter();
+            saveDraftNow();
+            $msg.focus();
+        }
+    }
+
+    function deleteTemplate(id) {
+        const idx = tpl.findIndex((t) => t.id === id);
+        if (idx < 0) return;
+        const removed = tpl.splice(idx, 1)[0];
+        store.set(K.tpl, tpl);
+        renderTemplates();
+        showToast('Template deleted.', 'info', {
+            duration: 6000,
+            action: { label: 'Undo', fn: () => { tpl.splice(Math.min(idx, tpl.length), 0, removed); store.set(K.tpl, tpl); renderTemplates(); } }
+        });
+    }
+
+    $('saveTpl').addEventListener('click', () => {
+        const text = $msg.value.trim();
+        if (!text) { showToast('Write a message first, then save it as a template.', 'error'); return; }
+        if (tpl.length >= TEMPLATE_LIMIT) { showToast('You can keep up to ' + TEMPLATE_LIMIT + ' templates. Delete one first.', 'error'); return; }
+        if (tpl.some((t) => t.text === text)) { showToast('That message is already a template.', 'info'); return; }
+        const first = text.split('\n')[0].slice(0, 24);
+        const label = window.prompt('Template name', first);
+        if (label === null) return;
+        tpl.push({ id: uid(), label: (label.trim() || first).slice(0, 30), text: text.slice(0, MAX_LEN) });
+        store.set(K.tpl, tpl);
+        renderTemplates();
+        $('tplBox').open = true;
+        showToast('Template saved.', 'success');
+    });
+
+    /* =====================================================================
+       Inbox (replies sent to your bot, read with getUpdates)
+       ===================================================================== */
+    const UPDATE_TYPES = ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'my_chat_member'];
+    const chatLabel = (c) => c.title || [c.first_name, c.last_name].filter(Boolean).join(' ') || (c.username ? '@' + c.username : String(c.id));
+
+    function mediaLabel(m) {
+        if (m.photo) return 'Photo';
+        if (m.document) return 'File' + (m.document.file_name ? ': ' + m.document.file_name : '');
+        if (m.voice) return 'Voice message';
+        if (m.audio) return 'Audio';
+        if (m.video) return 'Video';
+        if (m.video_note) return 'Video message';
+        if (m.animation) return 'GIF';
+        if (m.sticker) return 'Sticker' + (m.sticker.emoji ? ' ' + m.sticker.emoji : '');
+        if (m.location) return 'Location';
+        if (m.contact) return 'Contact';
+        if (m.poll) return 'Poll';
+        return m.text ? '' : 'Unsupported message';
+    }
+
+    function toInboxItem(id, m) {
+        const chat = m.chat;
+        const chatName = chatLabel(chat);
+        const from = m.from ? ([m.from.first_name, m.from.last_name].filter(Boolean).join(' ') || m.from.username || chatName) : chatName;
+        return {
+            id, ts: (m.date || 0) * 1000, chatId: String(chat.id), chatName, from,
+            group: chat.type !== 'private', text: String(m.text || m.caption || '').slice(0, MAX_LEN), media: mediaLabel(m)
+        };
+    }
+
+    function sanitizeInbox(arr) {
+        if (!Array.isArray(arr)) return [];
+        return arr.filter((x) => x && Number.isFinite(x.id) && typeof x.chatId === 'string').slice(0, INBOX_LIMIT);
+    }
+
+    async function fetchUpdates(token) {
+        const payload = { timeout: 0, limit: 100, allowed_updates: UPDATE_TYPES };
+        const off = store.get(K.offset, 0);
+        if (off) payload.offset = off;
+        return tg('getUpdates', payload, token ? { token } : {});
+    }
+
+    function ingestUpdates(updates) {
+        let added = 0, max = 0;
+        for (const u of updates) {
+            max = Math.max(max, u.update_id);
+            const m = u.message || u.edited_message || u.channel_post || u.edited_channel_post;
+            if (!m || !m.chat || inbox.some((x) => x.id === u.update_id)) continue;
+            inbox.push(toInboxItem(u.update_id, m));
+            added++;
+        }
+        if (max) store.set(K.offset, max + 1);
+        inbox.sort((a, b) => (b.ts - a.ts) || (b.id - a.id));
+        inbox = inbox.slice(0, INBOX_LIMIT);
+        if (added) store.set(K.inbox, inbox);
+        return added;
+    }
+
+    const unreadCount = () => inbox.filter((x) => x.id > seenId).length;
+
+    function markSeen() {
+        const max = inbox.reduce((m, x) => Math.max(m, x.id), 0);
+        if (max > seenId) { seenId = max; store.set(K.seen, seenId); }
+        renderInbox();
+    }
+
+    function setInboxStatus(msg) { $('inboxStatus').textContent = msg; }
+
+    async function pollInbox({ manual = false } = {}) {
+        if (polling || isLocked()) return;
+        if (!isConfigured()) {
+            if (manual) showToast('Add your bot token and a destination in Settings first.', 'error');
+            return;
+        }
+        polling = true;
+        $('inboxRefresh').disabled = true;
+        try {
+            const n = await ingestUpdates(await fetchUpdates());
+            setInboxStatus('Checked at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + (n ? ', ' + n + ' new.' : ', nothing new.'));
+            if (currentTab === 'inbox') markSeen();
+        } catch (err) {
+            setInboxStatus(friendlyError(err));
+            if (manual) showToast(friendlyError(err), 'error', { duration: 6000 });
+        } finally {
+            polling = false;
+            $('inboxRefresh').disabled = false;
+            renderInbox();
+        }
+    }
+
+    function replyTo(item) {
+        let d = dests.list.find((x) => x.chatId === item.chatId);
+        if (!d) {
+            d = { id: uid(), name: item.chatName.slice(0, 40), chatId: item.chatId };
+            dests.list.push(d);
+            showToast('Added ' + d.name + ' to your destinations.', 'info');
+        }
+        dests.active = d.id;
+        saveDests();
+        renderDests();
+        refreshStatus();
+        switchTab('send');
+        $msg.focus();
+    }
+
+    function renderInbox() {
+        const n = unreadCount();
+        $('inboxCount').textContent = n > 99 ? '99+' : n;
+        $('inboxCount').hidden = !n || currentTab === 'inbox';
+        const list = $('inboxList');
+        list.replaceChildren();
+        $('inboxTools').hidden = !inbox.length;
+        const empty = $('inboxEmpty');
+        empty.hidden = inbox.length > 0;
+        empty.textContent = 'Replies to your bot appear here. Send it a message from Telegram, then tap Refresh. This needs a bot without a webhook.';
+        inbox.forEach((it) => list.append(h('li', { class: it.id > seenId && currentTab !== 'inbox' ? 'unread' : '' },
+            h('div', { class: 'in-head' },
+                h('span', { class: 'in-from', text: it.from + (it.group ? ' in ' + it.chatName : '') }),
+                h('span', { class: 'in-time', text: fmtTime(it.ts) })
+            ),
+            it.text ? h('div', { class: 'in-text', text: it.text }) : null,
+            it.media ? h('span', { class: 'tag', text: it.media }) : null,
+            h('div', { class: 'h-foot' },
+                h('span', {}),
+                h('span', { class: 'h-actions' },
+                    h('button', { type: 'button', class: 'link-btn', text: 'Reply', onclick: () => replyTo(it) }),
+                    it.text ? h('button', { type: 'button', class: 'link-btn', text: 'Copy', onclick: () => copyWithToast(it.text, 'Message copied') }) : null,
+                    h('button', { type: 'button', class: 'link-btn', text: 'Remove', onclick: () => { inbox = inbox.filter((x) => x.id !== it.id); store.set(K.inbox, inbox); renderInbox(); } })
+                )
+            )
+        )));
+    }
+
+    $('inboxRefresh').addEventListener('click', () => pollInbox({ manual: true }));
+    $('autoPoll').addEventListener('change', () => {
+        saveSettings({ autoPoll: $('autoPoll').checked });
+        if ($('autoPoll').checked) pollInbox({ manual: true });
+    });
+    $('inboxClear').addEventListener('click', () => {
+        if (!window.confirm('Remove all messages from the Inbox list?')) return;
+        inbox = [];
+        store.set(K.inbox, inbox);
+        renderInbox();
+    });
+
+    setInterval(() => {
+        if (!document.hidden && settings && settings.autoPoll && !isLocked()) pollInbox();
+    }, POLL_MS);
+
+    /* =====================================================================
+       Links tab (GitHub URLs)
+       ===================================================================== */
+    const GH_HOST_RE = /(^|\.)(github\.com|github\.io|githubusercontent\.com)$/i;
+    const GH_RESERVED = new Set(['orgs', 'settings', 'topics', 'marketplace', 'sponsors', 'features', 'about', 'pricing', 'explore',
+        'notifications', 'apps', 'collections', 'trending', 'login', 'join', 'enterprise', 'organizations', 'users', 'search',
+        'pulls', 'issues', 'codespaces', 'new', 'security', 'contact', 'customer-stories', 'readme', 'events']);
+    const KIND_ICON = { repo: '\u{1F4E6}', issue: '\u{1F41E}', pr: '\u{1F500}', gist: '\u{1F4DD}', profile: '\u{1F464}', file: '\u{1F4C4}', site: '\u{1F310}', link: '\u{1F517}' };
+    const safeDecode = (s) => { try { return decodeURIComponent(s); } catch (e) { return s; } };
+
+    function describeUrl(u) {
+        const host = u.hostname.toLowerCase().replace(/^www\./, '');
+        const seg = u.pathname.split('/').filter(Boolean).map(safeDecode);
+
+        if (host === 'gist.github.com') return { kind: 'gist', title: seg.length > 1 ? 'Gist by ' + seg[0] : 'Gists' };
+        if (host.endsWith('.github.io')) return { kind: 'site', title: host + (seg.length ? '/' + seg.join('/') : '') };
+        if (host === 'raw.githubusercontent.com') {
+            return { kind: 'file', title: seg.length > 2 ? seg[0] + '/' + seg[1] + ': ' + seg[seg.length - 1] : host };
+        }
+        if (host !== 'github.com') return { kind: 'link', title: host + u.pathname.replace(/\/$/, '') };
+
+        if (!seg.length) return { kind: 'link', title: 'GitHub' };
+        if (GH_RESERVED.has(seg[0].toLowerCase())) return { kind: 'link', title: 'GitHub ' + seg.join('/') };
+        if (seg.length === 1) return { kind: 'profile', title: seg[0] };
+
+        const repo = seg[0] + '/' + seg[1];
+        const type = seg[2];
+        if (!type) return { kind: 'repo', title: repo };
+        if (type === 'issues' && /^\d+$/.test(seg[3] || '')) return { kind: 'issue', title: repo + '#' + seg[3] };
+        if (type === 'pull' && /^\d+$/.test(seg[3] || '')) return { kind: 'pr', title: repo + '#' + seg[3] };
+        if ((type === 'blob' || type === 'tree') && seg.length > 4) return { kind: 'file', title: repo + ': ' + seg[seg.length - 1] };
+        return { kind: 'repo', title: repo + '/' + seg.slice(2).join('/') };
+    }
+
+    // Accepts "owner/repo", "github.com/owner/repo", or a full URL. Rejects anything that is not a GitHub
+    // http(s) link, which also blocks javascript: and other unsafe schemes.
+    function parseGitHubUrl(input) {
+        let s = String(input == null ? '' : input).trim();
+        if (!s) throw new Error('Enter a GitHub URL first.');
+        if (/^[A-Za-z0-9-]+\/[\w.-]+$/.test(s)) s = 'https://github.com/' + s;
+        else if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) s = 'https://' + s;
+
+        let u;
+        try { u = new URL(s); } catch (e) { throw new Error('That does not look like a valid URL.'); }
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('Only http and https links are allowed.');
+        if (!GH_HOST_RE.test(u.hostname)) throw new Error('Only GitHub links are supported (github.com, gist.github.com, github.io).');
+
+        u.protocol = 'https:';
+        u.port = '';
+        u.username = '';
+        u.password = '';
+
+        const d = describeUrl(u);
+        const host = u.hostname.toLowerCase().replace(/^www\./, '');
+        return {
+            url: u.href,
+            key: host + u.pathname.replace(/\/+$/, '') + u.search + u.hash,
+            kind: d.kind,
+            title: d.title.slice(0, 80),
+            display: host + (u.pathname === '/' ? '' : u.pathname.replace(/\/$/, '')) + u.search
+        };
+    }
+
+    // The repository behind a github.com link (repo, issue, PR, file), or null.
+    function repoOf(urlStr) {
+        try {
+            const u = new URL(urlStr);
+            if (u.hostname.toLowerCase().replace(/^www\./, '') !== 'github.com') return null;
+            const seg = u.pathname.split('/').filter(Boolean);
+            if (seg.length < 2 || GH_RESERVED.has(seg[0].toLowerCase())) return null;
+            return { owner: seg[0], repo: seg[1].replace(/\.git$/, '') };
+        } catch (e) { return null; }
+    }
+
+    function devUrl(l, r) {
+        const seg = new URL(l.url).pathname.split('/').filter(Boolean);
+        const keep = (seg[2] === 'blob' || seg[2] === 'tree') ? '/' + seg.join('/') : '/' + r.owner + '/' + r.repo;
+        return 'https://github.dev' + keep;
+    }
+
+    const parseTags = (str) => {
+        const out = [];
+        String(str || '').split(/[,\n]/).forEach((t) => {
+            const tag = t.trim().replace(/^#+/, '').toLowerCase().slice(0, 24);
+            if (tag && !out.includes(tag)) out.push(tag);
+        });
+        return out.slice(0, 8);
+    };
+
+    function cleanInfo(i) {
+        if (!i || typeof i !== 'object') return null;
+        if (i.missing) return { missing: true, at: Number(i.at) || 0 };
+        return {
+            desc: String(i.desc || '').slice(0, 200), stars: Number(i.stars) || 0, lang: String(i.lang || '').slice(0, 30),
+            pushed: Number(i.pushed) || 0, archived: !!i.archived, fork: !!i.fork, at: Number(i.at) || 0
+        };
+    }
+
+    function sanitizeLinks(arr) {
+        if (!Array.isArray(arr)) return [];
+        const out = [];
+        for (const it of arr) {
+            try {
+                const p = parseGitHubUrl(it && it.url);
+                out.push({
+                    id: String((it && it.id) || uid()), url: p.url,
+                    title: String((it && it.title) || p.title).slice(0, 80),
+                    pinned: !!(it && it.pinned), added: Number(it && it.added) || Date.now(),
+                    tags: parseTags(Array.isArray(it && it.tags) ? it.tags.join(',') : ''),
+                    note: String((it && it.note) || '').slice(0, 200),
+                    info: cleanInfo(it && it.info)
+                });
+            } catch (e) { /* drop invalid or tampered entries */ }
+        }
+        return out;
+    }
+
+    const saveLinks = () => store.set(K.links, links);
+
+    /* ---------- GitHub repo details (public API, no login, 60 requests per hour per IP) ---------- */
+    async function fetchRepoInfo(link) {
+        const r = repoOf(link.url);
+        if (!r) return 'skip';
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 10000);
+        try {
+            const res = await fetch('https://api.github.com/repos/' + encodeURIComponent(r.owner) + '/' + encodeURIComponent(r.repo), { signal: ctrl.signal });
+            if (res.status === 404) { link.info = { missing: true, at: Date.now() }; return 'ok'; }
+            if (res.status === 403 || res.status === 429) return 'rate';
+            if (!res.ok) return 'error';
+            const d = await res.json();
+            link.info = cleanInfo({
+                desc: d.description || '', stars: d.stargazers_count, lang: d.language || '',
+                pushed: d.pushed_at ? Date.parse(d.pushed_at) : 0, archived: d.archived, fork: d.fork, at: Date.now()
+            });
+            return 'ok';
+        } catch (e) {
+            return 'error';
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    async function refreshOne(l) {
+        const r = await fetchRepoInfo(l);
+        saveLinks();
+        renderLinks();
+        showToast(r === 'ok' ? 'Details updated.' : r === 'rate' ? 'GitHub rate limit reached. Try again later.' : 'Could not load details right now.', r === 'ok' ? 'success' : 'error');
+    }
+
+    async function refreshAllInfo() {
+        const targets = links.filter((l) => repoOf(l.url) && (!l.info || Date.now() - l.info.at > INFO_TTL));
+        if (!targets.length) { showToast('Repository details are already up to date.', 'info'); return; }
+        const btn = $('refreshInfo');
+        let done = 0, failed = 0, limited = false;
+        for (const l of targets) {
+            btn.textContent = 'Refreshing ' + (done + 1) + ' of ' + targets.length + '...';
+            const r = await fetchRepoInfo(l);
+            if (r === 'rate') { limited = true; break; }
+            if (r === 'error') failed++;
+            done++;
+            saveLinks();
+            renderLinks();
+        }
+        showToast(limited ? 'GitHub rate limit reached after ' + done + '. Try again later.'
+            : 'Updated ' + (done - failed) + ' of ' + targets.length + ' links.', limited || failed ? 'error' : 'success');
+    }
+
+    $('refreshInfo').addEventListener('click', () => busy($('refreshInfo'), 'Refreshing...', refreshAllInfo));
+
+    /* ---------- Add / edit form ---------- */
+    const $linkUrl = $('linkUrl'), $linkTitle = $('linkTitle'), $linkTags = $('linkTags'), $linkNote = $('linkNote');
+    const $linkError = $('linkError'), $linkSubmit = $('linkSubmit'), $linkCancel = $('linkCancel'), $linkSearch = $('linkSearch');
+
+    function showLinkError(msg) {
+        $linkError.textContent = msg;
+        $linkError.hidden = !msg;
+        $linkUrl.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    }
+
+    function resetLinkForm() {
+        editingLinkId = null;
+        $linkUrl.value = '';
+        $linkTitle.value = '';
+        $linkTags.value = '';
+        $linkNote.value = '';
+        $linkSubmit.textContent = 'Save link';
+        $linkCancel.hidden = true;
+        showLinkError('');
+        renderTagSuggest();
+    }
+
+    $linkUrl.addEventListener('input', () => showLinkError(''));
+    $linkCancel.addEventListener('click', resetLinkForm);
+    $linkTags.addEventListener('input', renderTagSuggest);
+
+    $('pasteBtn').addEventListener('click', async () => {
+        try {
+            const t = (await navigator.clipboard.readText()).trim();
+            if (!t) { showToast('The clipboard is empty.', 'info'); return; }
+            $linkUrl.value = t;
+            showLinkError('');
+        } catch (e) {
+            showToast('Could not read the clipboard. Paste into the field instead.', 'error');
+        }
+    });
+
+    function allTags() {
+        const m = new Map();
+        links.forEach((l) => l.tags.forEach((t) => m.set(t, (m.get(t) || 0) + 1)));
+        return Array.from(m.entries()).sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+    }
+
+    function renderTagSuggest() {
+        const tags = allTags();
+        const box = $('tagSuggest');
+        box.replaceChildren();
+        box.hidden = !tags.length;
+        const current = parseTags($linkTags.value);
+        tags.forEach(([t]) => box.append(h('button', {
+            type: 'button', class: 'tag-filter', 'aria-pressed': String(current.includes(t)), text: t,
+            onclick: () => {
+                const cur = parseTags($linkTags.value);
+                $linkTags.value = (cur.includes(t) ? cur.filter((x) => x !== t) : cur.concat(t)).join(', ');
+                renderTagSuggest();
+            }
+        })));
+    }
+
+    $('linkForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        showLinkError('');
+        let p;
+        try { p = parseGitHubUrl($linkUrl.value); }
+        catch (err) { showLinkError(err.message); $linkUrl.focus(); return; }
+
+        const dup = links.find((l) => l.id !== editingLinkId && parseGitHubUrl(l.url).key === p.key);
+        if (dup) { showLinkError('Already saved as "' + dup.title + '".'); return; }
+
+        const title = $linkTitle.value.trim().slice(0, 80) || p.title;
+        const tags = parseTags($linkTags.value);
+        const note = $linkNote.value.trim().slice(0, 200);
+        let target;
+        if (editingLinkId) {
+            target = links.find((x) => x.id === editingLinkId);
+            if (target) {
+                if (target.url !== p.url) target.info = null;
+                Object.assign(target, { url: p.url, title, tags, note });
+            }
+            showToast('Link updated.', 'success');
+        } else {
+            target = { id: uid(), url: p.url, title, pinned: false, added: Date.now(), tags, note, info: null };
+            links.push(target);
+            showToast('Link saved.', 'success');
+        }
+        saveLinks();
+        resetLinkForm();
+        renderLinks();
+        // Fetch repo details in the background for repository links.
+        if (target && !target.info && repoOf(target.url)) {
+            fetchRepoInfo(target).then(() => { if (links.includes(target)) { saveLinks(); renderLinks(); } });
+        }
+    });
+
+    function startEdit(l) {
+        editingLinkId = l.id;
+        $linkUrl.value = l.url;
+        $linkTitle.value = l.title;
+        $linkTags.value = l.tags.join(', ');
+        $linkNote.value = l.note;
+        $linkSubmit.textContent = 'Update link';
+        $linkCancel.hidden = false;
+        showLinkError('');
+        renderTagSuggest();
+        $linkUrl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        $linkUrl.focus();
+    }
+
+    function togglePin(id) {
+        const l = links.find((x) => x.id === id);
+        if (!l) return;
+        l.pinned = !l.pinned;
+        saveLinks();
+        renderLinks();
+    }
+
+    function deleteLinks(ids) {
+        const removed = links.map((l, i) => ({ l, i })).filter((x) => ids.includes(x.l.id));
+        if (!removed.length) return;
+        links = links.filter((l) => !ids.includes(l.id));
+        ids.forEach((id) => { selected.delete(id); expanded.delete(id); });
+        if (ids.includes(editingLinkId)) resetLinkForm();
+        saveLinks();
+        renderLinks();
+        showToast(removed.length === 1 ? 'Link deleted.' : removed.length + ' links deleted.', 'info', {
+            duration: 6000,
+            action: { label: 'Undo', fn: () => { removed.forEach((x) => links.push(x.l)); saveLinks(); renderLinks(); } }
+        });
+    }
+
+    const linkText = (l) => l.title + '\n' + l.url;
+
+    function addTextToMessage(text, note) {
+        if (editing) endEdit();
+        const cur = $msg.value.trim();
+        $msg.value = cur ? cur + '\n\n' + text : text;
+        updateCounter();
+        saveDraftNow();
+        switchTab('send');
+        showToast(note, 'info');
+    }
+
+    /* ---------- Selection mode and bulk actions ---------- */
+    function visibleLinks() {
+        const q = links.length < 5 ? '' : $linkSearch.value.trim().toLowerCase();
+        return links
+            .filter((l) => !activeTag || (activeTag === '__pinned' ? l.pinned : l.tags.includes(activeTag)))
+            .filter((l) => !q || [l.title, l.url, l.note, l.tags.join(' '), (l.info && l.info.desc) || ''].join(' ').toLowerCase().includes(q))
+            .sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || (b.added - a.added));
+    }
+
+    function updateBulkBar() {
+        const n = selected.size;
+        $('bulkBar').hidden = !selectMode;
+        $('bulkCount').textContent = n + ' selected';
+        ['bulkAdd', 'bulkCopy', 'bulkDelete'].forEach((id) => { $(id).disabled = !n; });
+        const vis = visibleLinks();
+        $('bulkAll').textContent = vis.length && vis.every((l) => selected.has(l.id)) ? 'Clear' : 'Select all';
+    }
+
+    function setSelected(id, on) {
+        if (on) selected.add(id); else selected.delete(id);
+        updateBulkBar();
+    }
+
+    function setSelectMode(on) {
+        selectMode = on;
+        selected.clear();
+        $('selectToggle').textContent = on ? 'Done' : 'Select';
+        renderLinks();
+    }
+
+    $('selectToggle').addEventListener('click', () => setSelectMode(!selectMode));
+    $('bulkAll').addEventListener('click', () => {
+        const vis = visibleLinks();
+        const all = vis.length && vis.every((l) => selected.has(l.id));
+        vis.forEach((l) => { if (all) selected.delete(l.id); else selected.add(l.id); });
+        renderLinks();
+    });
+
+    const selectedLinks = () => visibleLinks().filter((l) => selected.has(l.id));
+
+    $('bulkAdd').addEventListener('click', () => {
+        const sel = selectedLinks();
+        if (!sel.length) return;
+        addTextToMessage(sel.map(linkText).join('\n\n'), sel.length + ' links added to your message. Review it, then send.');
+        setSelectMode(false);
+    });
+    $('bulkCopy').addEventListener('click', () => {
+        const sel = selectedLinks();
+        if (sel.length) copyWithToast(sel.map(linkText).join('\n\n'), sel.length + ' links copied');
+    });
+    $('bulkDelete').addEventListener('click', () => {
+        const sel = selectedLinks();
+        if (!sel.length) return;
+        deleteLinks(sel.map((l) => l.id));
+        updateBulkBar();
+    });
+
+    /* ---------- Rendering ---------- */
+    function renderTagBar() {
+        const tags = allTags();
+        const box = $('tagBar');
+        if (activeTag && activeTag !== '__pinned' && !tags.some(([t]) => t === activeTag)) activeTag = null;
+        if (activeTag === '__pinned' && !links.some((l) => l.pinned)) activeTag = null;
+        box.replaceChildren();
+        box.hidden = !tags.length;
+        if (!tags.length) return;
+        const chip = (label, val) => h('button', {
+            type: 'button', class: 'tag-filter', 'aria-pressed': String(activeTag === val), text: label,
+            onclick: () => { activeTag = val; renderLinks(); }
+        });
+        box.append(chip('All', null));
+        if (links.some((l) => l.pinned)) box.append(chip('Pinned', '__pinned'));
+        tags.forEach(([t, n]) => box.append(chip(t + ' (' + n + ')', t)));
+    }
+
+    function metaLine(l) {
+        const i = l.info;
+        if (!i) return null;
+        const bits = [];
+        if (i.missing) bits.push(h('span', { class: 'flag', text: 'Not found or private' }));
+        else {
+            if (i.archived) bits.push(h('span', { class: 'flag', text: 'Archived' }));
+            bits.push(h('span', { text: compact(i.stars) + ' stars' }));
+            if (i.lang) bits.push(h('span', { text: i.lang }));
+            if (i.pushed) bits.push(h('span', { text: 'updated ' + ago(i.pushed) }));
+            if (i.fork) bits.push(h('span', { text: 'fork' }));
+        }
+        return h('div', { class: 'link-meta' }, bits);
+    }
+
+    function linkItem(l) {
+        const p = parseGitHubUrl(l.url);
+        const repo = repoOf(l.url);
+        const anchor = h('a', {
+            class: 'link-main', href: l.url, target: '_blank', rel: 'noopener noreferrer', title: 'Open ' + l.url
+        },
+            h('span', { class: 'link-ico', 'aria-hidden': 'true', text: KIND_ICON[p.kind] || KIND_ICON.link }),
+            h('span', { class: 'link-text' },
+                h('span', { class: 'link-title', text: l.title }),
+                h('span', { class: 'link-url', text: p.display })
+            ),
+            icon('ext', 18)
+        );
+
+        // A real anchor: the browser opens it in a new tab on tap or click, with no popup-blocker issues.
+        const top = h('div', { class: 'link-top' });
+        if (selectMode) {
+            const cb = h('input', { type: 'checkbox', class: 'sel', 'aria-label': 'Select ' + l.title });
+            cb.checked = selected.has(l.id);
+            cb.addEventListener('change', () => setSelected(l.id, cb.checked));
+            anchor.addEventListener('click', (e) => { e.preventDefault(); cb.checked = !cb.checked; setSelected(l.id, cb.checked); });
+            top.append(cb);
+        }
+        top.append(anchor);
+
+        const extra = h('div', { class: 'link-extra' },
+            l.info && l.info.desc ? h('div', { class: 'link-desc', text: l.info.desc }) : null,
+            metaLine(l),
+            l.tags.length ? h('div', { class: 'link-tags' }, l.tags.map((t) => h('span', { class: 'tag', text: t }))) : null,
+            l.note ? h('div', { class: 'link-note', text: l.note }) : null
+        );
+
+        const open = expanded.has(l.id);
+        const kids = [top];
+        if (extra.childNodes.length) kids.push(extra);
+        if (!selectMode) {
+            kids.push(h('div', { class: 'link-actions' },
+                iconBtn('star', l.pinned ? 'Unpin' : 'Pin to top', () => togglePin(l.id), { pressed: l.pinned }),
+                iconBtn('send', 'Add to Telegram message', () => addTextToMessage(linkText(l), 'Link added to your message. Review it, then send.')),
+                iconBtn('edit', 'Edit', () => startEdit(l)),
+                iconBtn('trash', 'Delete', () => deleteLinks([l.id]), { danger: true }),
+                iconBtn('more', open ? 'Fewer options' : 'More options', () => { if (open) expanded.delete(l.id); else expanded.add(l.id); renderLinks(); }, { expanded: open })
+            ));
+            if (open) {
+                kids.push(h('div', { class: 'link-more' },
+                    h('button', { type: 'button', class: 'link-btn', text: 'Copy link', onclick: () => copyWithToast(l.url, 'Link copied') }),
+                    repo ? h('button', { type: 'button', class: 'link-btn', text: 'Copy git clone', onclick: () => copyWithToast('git clone https://github.com/' + repo.owner + '/' + repo.repo + '.git', 'Clone command copied') }) : null,
+                    repo ? h('button', { type: 'button', class: 'link-btn', text: 'Copy SSH clone', onclick: () => copyWithToast('git clone git@github.com:' + repo.owner + '/' + repo.repo + '.git', 'SSH clone command copied') }) : null,
+                    repo ? h('a', { class: 'link-btn', href: devUrl(l, repo), target: '_blank', rel: 'noopener noreferrer', text: 'Open in github.dev' }) : null,
+                    repo ? h('button', { type: 'button', class: 'link-btn', text: 'Refresh details', onclick: () => refreshOne(l) }) : null
+                ));
+            }
+        }
+        return h('li', {}, kids);
+    }
+
+    function renderLinks() {
+        const total = links.length;
+        $('linkCount').textContent = total;
+        $('linkCount').hidden = !total;
+        $('linkTotal').textContent = total ? '(' + total + ')' : '';
+        $('linkSearchWrap').hidden = total < 5;
+        $('selectToggle').hidden = !total;
+        $('refreshInfo').hidden = !links.some((l) => repoOf(l.url));
+        renderTagBar();
+        renderTagSuggest();
+
+        const visible = visibleLinks();
+        const list = $('linkList');
+        list.replaceChildren();
+        const empty = $('linkEmpty');
+        updateBulkBar();
+        if (!visible.length) {
+            empty.hidden = false;
+            empty.textContent = total ? 'No saved links match your filter.' : 'No links yet. Add a GitHub URL above, then tap it any time to open it.';
+            list.hidden = true;
+            return;
+        }
+        empty.hidden = true;
+        list.hidden = false;
+        visible.forEach((l) => list.append(linkItem(l)));
+    }
+
+    $linkSearch.addEventListener('input', renderLinks);
+
+    /* =====================================================================
+       Settings tab
+       ===================================================================== */
+    const $token = $('token'), $result = $('testResult');
+    const $destName = $('destName'), $chatId = $('chatId');
+
+    const readToken = () => $token.value.trim().replace(/^bot/i, '');
+
+    function validateToken(t) {
+        if (!t) return 'Enter your bot token.';
+        if (!TOKEN_RE.test(t)) return 'That token does not look right. It should look like 123456789:AAE... (copy it from @BotFather).';
+        return '';
+    }
+
+    function setResult(msg, type) {
+        $result.textContent = msg;
+        $result.dataset.type = type || '';
+        $result.hidden = !msg;
+    }
+
+    function fillSettingsForm() {
+        $token.value = settings.token || '';
+        $('lockAfter').value = String(settings.lockAfter);
+    }
+
+    $('toggleToken').addEventListener('click', () => {
+        const show = $token.type === 'password';
+        $token.type = show ? 'text' : 'password';
+        $('toggleToken').textContent = show ? 'Hide' : 'Show';
+    });
+
+    $('settingsForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = readToken();
+        const err = validateToken(token);
+        if (err) { setResult(err, 'error'); return; }
+        $token.value = token;
+        try {
+            await persistToken(token);
+            setResult('', '');
+            showToast('Token saved.', 'success');
+        } catch (e2) {
+            console.error(e2);
+            setResult('Could not save the token in this browser.', 'error');
+        }
+    });
+
+    $('testBtn').addEventListener('click', () => busy($('testBtn'), 'Testing...', async () => {
+        const token = readToken();
+        const err = validateToken(token);
+        if (err) { setResult(err, 'error'); return; }
+        setResult('Contacting Telegram...', '');
+        try {
+            const me = await tg('getMe', {}, { token });
+            const lines = ['Connected to ' + me.first_name + ' (@' + me.username + ').'];
+            let bad = false;
+            for (const d of dests.list) {
+                try {
+                    const chat = await tg('getChat', { chat_id: d.chatId }, { token });
+                    lines.push(d.name + ': found (' + chatLabel(chat) + ')');
+                } catch (e2) {
+                    bad = true;
+                    lines.push(d.name + ': ' + friendlyError(e2));
+                }
+            }
+            if (!dests.list.length) lines.push('Add a destination below to finish setup.');
+            setResult(lines.join('\n'), bad ? 'error' : 'ok');
+        } catch (e2) {
+            setResult(friendlyError(e2), 'error');
+        }
+    }));
+
+    /* ---------- Destinations ---------- */
+    function setDestError(msg) { $('destError').textContent = msg; $('destError').hidden = !msg; }
+
+    function resetDestForm() {
+        editingDestId = null;
+        $destName.value = '';
+        $chatId.value = '';
+        $('destSubmit').textContent = 'Add destination';
+        $('destCancel').hidden = true;
+        setDestError('');
+    }
+
+    $('destCancel').addEventListener('click', resetDestForm);
+    $chatId.addEventListener('input', () => setDestError(''));
+
+    $('destForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const chatId = $chatId.value.trim();
+        if (!CHAT_RE.test(chatId)) { setDestError('The chat ID should be a number (it may start with a minus sign) or @channelname.'); $chatId.focus(); return; }
+        const name = $destName.value.trim().slice(0, 40) || chatId;
+        const dup = dests.list.find((d) => d.id !== editingDestId && d.chatId.toLowerCase() === chatId.toLowerCase());
+        if (dup) { setDestError('That chat is already saved as "' + dup.name + '".'); return; }
+        if (editingDestId) {
+            const d = dests.list.find((x) => x.id === editingDestId);
+            if (d) { d.name = name; d.chatId = chatId; }
+        } else {
+            const d = { id: uid(), name, chatId };
+            dests.list.push(d);
+            if (!dests.active) dests.active = d.id;
+        }
+        saveDests();
+        resetDestForm();
+        renderDests();
+        refreshStatus();
+        showToast('Destination saved.', 'success');
+    });
+
+    function deleteDest(id) {
+        const idx = dests.list.findIndex((d) => d.id === id);
+        if (idx < 0) return;
+        const removed = dests.list.splice(idx, 1)[0];
+        const wasActive = dests.active === id;
+        if (wasActive) dests.active = dests.list[0] ? dests.list[0].id : null;
+        if (editingDestId === id) resetDestForm();
+        saveDests();
+        renderDests();
+        refreshStatus();
+        showToast('Destination deleted.', 'info', {
+            duration: 6000,
+            action: {
+                label: 'Undo',
+                fn: () => {
+                    dests.list.splice(Math.min(idx, dests.list.length), 0, removed);
+                    if (wasActive || !dests.active) dests.active = removed.id;
+                    saveDests(); renderDests(); refreshStatus();
+                }
+            }
+        });
+    }
+
+    function renderDests() {
+        renderDestSelect();
+        const list = $('destList');
+        list.replaceChildren();
+        list.hidden = !dests.list.length;
+        dests.list.forEach((d) => list.append(h('li', {},
+            h('div', { class: 'dest-name', text: d.name }),
+            h('div', { class: 'dest-id', text: d.chatId }),
+            h('div', { class: 'h-actions' },
+                h('button', {
+                    type: 'button', class: 'link-btn', text: 'Edit',
+                    onclick: () => {
+                        editingDestId = d.id;
+                        $destName.value = d.name;
+                        $chatId.value = d.chatId;
+                        $('destSubmit').textContent = 'Save destination';
+                        $('destCancel').hidden = false;
+                        setDestError('');
+                        $destName.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                        $destName.focus();
+                    }
+                }),
+                h('button', { type: 'button', class: 'link-btn danger', text: 'Delete', onclick: () => deleteDest(d.id) })
+            )
+        )));
+        $('prefillLink').value = location.href.split(/[?#]/)[0] + '?text=Hello&to=' + encodeURIComponent((activeDest() || { name: 'Me' }).name);
+    }
+
+    $('findChat').addEventListener('click', () => busy($('findChat'), 'Finding...', async () => {
+        const token = readToken();
+        const err = validateToken(token);
+        if (err) { setResult(err, 'error'); return; }
+        try {
+            const updates = await fetchUpdates(token);
+            ingestUpdates(updates);
+            renderInbox();
+            let found = null;
+            for (let i = updates.length - 1; i >= 0 && !found; i--) {
+                const u = updates[i];
+                const m = u.message || u.edited_message || u.channel_post || u.edited_channel_post || u.my_chat_member;
+                if (m && m.chat) found = { id: String(m.chat.id), name: chatLabel(m.chat) };
+            }
+            if (!found && inbox.length) found = { id: inbox[0].chatId, name: inbox[0].chatName };
+            if (!found) {
+                setDestError('No messages found yet. Send your bot any message in Telegram (for example /start), then tap Find again.');
+                return;
+            }
+            setDestError('');
+            $chatId.value = found.id;
+            if (!$destName.value.trim()) $destName.value = found.name.slice(0, 40);
+            showToast('Found ' + found.name + ' (' + found.id + '). Tap Add destination to keep it.', 'success', { duration: 5000 });
+        } catch (e2) {
+            setDestError(friendlyError(e2));
+        }
+    }));
+
+    /* ---------- Automation (URL prefill) ---------- */
+    function applyPrefill() {
+        let q;
+        try { q = new URLSearchParams(location.search); } catch (e) { return false; }
+        if (![...q.keys()].length) return false;
+        const text = q.get('text');
+        const to = q.get('to');
+        if (to) {
+            const t = to.toLowerCase();
+            const d = dests.list.find((x) => x.id === to || x.name.toLowerCase() === t || x.chatId.toLowerCase() === t);
+            if (d) { dests.active = d.id; saveDests(); renderDests(); refreshStatus(); }
+        }
+        if (q.get('mode')) { $mode.value = q.get('mode') === 'html' ? 'html' : 'plain'; applyModeUI(); }
+        if (q.get('silent')) $silent.checked = /^(1|true|yes)$/i.test(q.get('silent'));
+        if (q.get('nopreview')) $noPreview.checked = /^(1|true|yes)$/i.test(q.get('nopreview'));
+        try { window.history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* file:// may block this */ }
+        if (text) {
+            if (editing) endEdit();
+            $msg.value = text.slice(0, 20000);
+            updateCounter();
+            saveDraftNow();
+            showToast('Message prefilled. Review it, then send.', 'info', { duration: 4000 });
+            return true;
+        }
+        return false;
+    }
+
+    $('copyPrefill').addEventListener('click', () => copyWithToast($('prefillLink').value, 'Link copied'));
+
+    /* ---------- Backup and restore ---------- */
+    function backupPayload() {
+        return {
+            app: 'telegram-sender', version: 2, exported: new Date().toISOString(),
+            links: links.map((l) => ({ id: l.id, url: l.url, title: l.title, pinned: l.pinned, added: l.added, tags: l.tags, note: l.note })),
+            templates: tpl.map((t) => ({ label: t.label, text: t.text })),
+            destinations: dests.list.map((d) => ({ name: d.name, chatId: d.chatId }))
+        };
+    }
+
+    const backupName = () => 'telegram-sender-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+
+    $('exportBtn').addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(backupPayload(), null, 2)], { type: 'application/json' });
+        const a = h('a', { href: URL.createObjectURL(blob), download: backupName() });
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+
+    $('backupTg').addEventListener('click', () => busy($('backupTg'), 'Sending...', async () => {
+        const dest = activeDest();
+        if (!isConfigured() || !dest) { showToast('Add your bot token and a destination first.', 'error'); return; }
+        const p = backupPayload();
+        const fd = new FormData();
+        fd.append('chat_id', dest.chatId);
+        fd.append('caption', 'Telegram Sender backup: ' + p.links.length + ' links, ' + p.templates.length + ' templates, ' + p.destinations.length + ' destinations');
+        fd.append('document', new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' }), backupName());
+        try {
+            await withRetry(() => tgUpload('sendDocument', fd));
+            showToast('Backup sent to ' + dest.name + '.', 'success');
+        } catch (err) {
+            showToast(friendlyError(err), 'error', { duration: 6000 });
+        }
+    }));
+
+    $('importBtn').addEventListener('click', () => $('importFile').click());
+
+    $('importFile').addEventListener('change', async () => {
+        const input = $('importFile');
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        try {
+            const data = JSON.parse(await file.text());
+            const rawLinks = Array.isArray(data) ? data : data.links;
+            if (!Array.isArray(rawLinks) && !Array.isArray(data.templates) && !Array.isArray(data.destinations)) throw new Error('bad format');
+
+            let addedL = 0, addedT = 0, addedD = 0, skipped = 0;
+            const keys = new Set(links.map((l) => parseGitHubUrl(l.url).key));
+            for (const l of sanitizeLinks(rawLinks || [])) {
+                const key = parseGitHubUrl(l.url).key;
+                if (keys.has(key)) { skipped++; continue; }
+                keys.add(key);
+                links.push(Object.assign(l, { id: uid() }));
+                addedL++;
+            }
+            for (const t of sanitizeTpl(data.templates || [])) {
+                if (tpl.length >= TEMPLATE_LIMIT || tpl.some((x) => x.text === t.text)) { skipped++; continue; }
+                tpl.push(Object.assign(t, { id: uid() }));
+                addedT++;
+            }
+            for (const d of (Array.isArray(data.destinations) ? data.destinations : [])) {
+                const chatId = String((d && d.chatId) || '').trim();
+                if (!CHAT_RE.test(chatId) || dests.list.some((x) => x.chatId.toLowerCase() === chatId.toLowerCase())) { skipped++; continue; }
+                dests.list.push({ id: uid(), name: String(d.name || chatId).slice(0, 40), chatId });
+                addedD++;
+            }
+            if (!dests.active && dests.list[0]) dests.active = dests.list[0].id;
+            saveLinks(); store.set(K.tpl, tpl); saveDests();
+            renderAll();
+            const total = addedL + addedT + addedD;
+            showToast('Imported ' + addedL + ' links, ' + addedT + ' templates, ' + addedD + ' destinations' + (skipped ? ' (skipped ' + skipped + ')' : '') + '.', total ? 'success' : 'info', { duration: 5000 });
+        } catch (e) {
+            showToast('That file is not a valid backup.', 'error');
+        }
+    });
+
+    /* ---------- Erase ---------- */
+    function eraseEverything() {
+        if (!window.confirm('Erase your token, destinations, links, templates, history, inbox and draft from this browser?')) return;
+        Object.values(K).forEach((k) => store.remove(k));
+        vault = null; vaultKey = null; sessionToken = null;
+        settings = loadSettings();
+        dests = loadDests();
+        links = []; history = []; tpl = []; inbox = []; seenId = 0;
+        editing = null;
+        $('editBanner').hidden = true;
+        $('attachBtn').disabled = false;
+        clearAttachments();
+        resetLinkForm();
+        resetDestForm();
+        setSelectMode(false);
+        $msg.value = '';
+        $mode.value = 'plain';
+        $silent.checked = false;
+        $noPreview.checked = false;
+        $asFile.checked = false;
+        $tplInstant.checked = false;
+        $('autoPoll').checked = false;
+        applyModeUI();
+        updateCounter();
+        setResult('', '');
+        applyLockUI();
+        fillSettingsForm();
+        renderAll();
+        showToast('All saved data erased.', 'info');
+    }
+
+    $('eraseAll').addEventListener('click', eraseEverything);
+
+    /* =====================================================================
+       Global events
+       ===================================================================== */
+    function renderAll() {
+        renderDests();
+        renderTemplates();
+        renderHistory();
+        renderInbox();
+        renderLinks();
+        refreshStatus();
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) { hiddenAt = Date.now(); return; }
+        if (vault && !isLocked() && settings.lockAfter > 0 && hiddenAt && Date.now() - hiddenAt > settings.lockAfter * 60000) {
+            lockNow();
+        } else if (settings && settings.autoPoll && !isLocked()) {
+            pollInbox();
+        }
+        hiddenAt = 0;
+    });
+
+    window.addEventListener('offline', () => showToast('You are offline. Messages cannot be sent until you reconnect.', 'error'));
+
+    /* =====================================================================
+       Init
+       ===================================================================== */
+    function init() {
+        vault = readVault();
+        settings = loadSettings();
+        dests = loadDests();
+        links = sanitizeLinks(store.get(K.links, []));
+        const savedHistory = store.get(K.history, []);
+        history = Array.isArray(savedHistory) ? savedHistory.filter((x) => x && typeof x.text === 'string') : [];
+        tpl = sanitizeTpl(store.get(K.tpl, []));
+        inbox = sanitizeInbox(store.get(K.inbox, []));
+        seenId = Number(store.get(K.seen, 0)) || 0;
+
+        $('lockNow').append(icon('lock'));
+        $('attachBtn').prepend(icon('clip', 18));
+
+        $mode.value = settings.mode === 'html' ? 'html' : 'plain';
+        $silent.checked = !!settings.silent;
+        $noPreview.checked = !!settings.noPreview;
+        $asFile.checked = !!settings.asFile;
+        $tplInstant.checked = !!settings.tplInstant;
+        $('autoPoll').checked = !!settings.autoPoll;
+        const draft = store.get(K.draft, '');
+        $msg.value = typeof draft === 'string' ? draft : '';
+
+        $('storageWarn').hidden = store.persistent;
+        $('pasteBtn').hidden = !(navigator.clipboard && navigator.clipboard.readText);
+
+        fillSettingsForm();
+        applyModeUI();
+        updateCounter();
+        applyLockUI();
+        renderAll();
+
+        const prefilled = isLocked() ? false : applyPrefill();
+        const hash = location.hash.slice(1);
+        switchTab(prefilled ? 'send' : (TABS.includes(hash) ? hash : store.get(K.tab, 'send')));
+    }
+
+    init();
+})();
+</script>
+
+</body>
+</html>
