@@ -392,6 +392,38 @@
         }
         .toast.success button, .toast.error button { color: #fff; text-decoration: underline; }
 
+        /* ---------- Inbox filter ---------- */
+        .inbox-filter { align-items: center; flex-wrap: wrap; margin: 10px 0 0; }
+        .inbox-filter input[type="search"] { flex: 1 1 220px; width: auto; min-width: 0; }
+
+        /* ---------- Large screens ---------- */
+        @media (min-width: 1000px) {
+            body { font-size: 17px; align-items: flex-start; }
+            .app { max-width: 1120px; align-self: flex-start; margin: 3vh auto; padding: 32px 40px 40px; }
+            .head h1 { font-size: 1.75rem; }
+            .tabs { max-width: 560px; }
+            textarea { min-height: 220px; }
+            #panel-send { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 0 40px; align-items: start; }
+            #panel-send > .notice { grid-column: 1 / -1; }
+            #panel-send #historyWrap .section-head { margin-top: 0; }
+            #panel-send:has(#historyWrap[hidden]) { grid-template-columns: minmax(0, 1fr); }
+            #inboxList, #linkList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 12px; }
+            #inboxList > li, #linkList > li, #inboxList > li:first-child, #linkList > li:first-child {
+                border: 1.5px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--field);
+            }
+            #inboxList > li.unread { border-left: 4px solid var(--blue); padding-left: 14px; }
+            #linkForm { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+            #linkForm .field:first-child, #linkForm .error, #linkForm .row { grid-column: 1 / -1; }
+            #linkForm .row .btn.primary { flex: 0 1 260px; }
+            #panel-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 0 48px; align-items: start; }
+            #panel-settings > .sect:nth-child(2) { margin-top: 0; padding-top: 0; border-top: 0; }
+            #panel-settings > .panel-note, #panel-settings > .sect:last-child { grid-column: 1 / -1; }
+        }
+        @media (min-width: 1500px) {
+            .app { max-width: 1360px; }
+            #inboxList, #linkList { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .toast { transition: none; }
             .btn:active { transform: none; }
@@ -422,6 +454,10 @@
     <!-- ================= SEND ================= -->
     <section class="panel" id="panel-send" role="tabpanel" aria-labelledby="tab-send">
         <button type="button" class="notice" id="setupBanner" hidden>Add your bot token and a destination in Settings to start sending.</button>
+        <div class="notice static" id="replyBanner" hidden>
+            <span id="replyText"></span>
+            <button type="button" class="link-btn" id="replyCancel">Cancel</button>
+        </div>
         <div class="notice static" id="editBanner" hidden>
             <span>Editing a message you already sent. Nothing changes in Telegram until you tap Update.</span>
             <button type="button" class="link-btn" id="editCancel">Cancel</button>
@@ -496,6 +532,11 @@
         <div class="row inbox-bar">
             <button type="button" class="btn ghost small" id="inboxRefresh">Refresh</button>
             <label class="check"><input type="checkbox" id="autoPoll"> Check every 30 seconds</label>
+        </div>
+        <div class="row inbox-filter" id="inboxFilter" hidden>
+            <label class="sr" for="inboxSearch">Search the inbox</label>
+            <input id="inboxSearch" type="search" placeholder="Search messages and files" autocomplete="off">
+            <label class="check"><input type="checkbox" id="inboxFilesOnly"> Files only</label>
         </div>
         <p class="hint" id="inboxStatus"></p>
         <ul class="list" id="inboxList"></ul>
@@ -883,7 +924,7 @@
     let settings = null, dests = { list: [], active: null };
     let links = [], history = [], tpl = [], inbox = [], attachments = [];
     let seenId = 0;
-    let editingLinkId = null, editing = null, editingDestId = null;
+    let editingLinkId = null, editing = null, editingDestId = null, replyCtx = null;
     let sending = false, polling = false, currentTab = 'send';
     let selectMode = false, activeTag = null, hiddenAt = 0;
     const selected = new Set(), expanded = new Set();
@@ -1065,13 +1106,14 @@
         return 'document';
     }
 
-    async function sendOneFile(file, caption, opts, dest, onProgress) {
+    async function sendOneFile(file, caption, opts, dest, onProgress, replyId) {
         const attempt = (kind, html) => {
             const fd = new FormData();
             fd.append('chat_id', dest.chatId);
             if (opts.silent) fd.append('disable_notification', 'true');
             if (caption) { fd.append('caption', caption); if (html) fd.append('parse_mode', 'HTML'); }
             if (kind === 'video') fd.append('supports_streaming', 'true');
+            if (replyId) fd.append('reply_parameters', JSON.stringify({ message_id: replyId, allow_sending_without_reply: true }));
             fd.append(kind, file, file.name || kind);
             const method = 'send' + kind.charAt(0).toUpperCase() + kind.slice(1);
             return withRetry(() => tgUpload(method, fd, { onProgress }));
@@ -1095,6 +1137,8 @@
         const textParts = text && !useCaption ? splitMessage(text) : [];
         const total = textParts.length + files.length;
         let step = 0;
+        const replyId = opts.reply || 0;
+        const replyParams = (first) => replyId && first ? { reply_parameters: { message_id: replyId, allow_sending_without_reply: true } } : {};
         const label = (pct) => onStatus(total > 1
             ? 'Sending ' + step + ' of ' + total + (pct != null ? ' (' + pct + '%)' : '...')
             : (pct != null ? 'Uploading ' + pct + '%' : 'Sending...'));
@@ -1105,14 +1149,14 @@
                 const r = await parseFallback(opts.mode, (html) => withRetry(() => tg('sendMessage', Object.assign({
                     chat_id: dest.chatId, text: part, disable_notification: !!opts.silent,
                     link_preview_options: { is_disabled: !!opts.noPreview }
-                }, html ? { parse_mode: 'HTML' } : {}))));
+                }, html ? { parse_mode: 'HTML' } : {}, replyParams(step === 1)))));
                 if (r.fell) fellBack = true;
                 sent.push({ chat: r.res.chat.id, id: r.res.message_id, kind: 'text' });
             }
             for (let i = 0; i < files.length; i++) {
                 step++;
                 label(0);
-                const r = await sendOneFile(files[i], i === 0 && useCaption ? text : '', opts, dest, (p) => label(Math.round(p * 100)));
+                const r = await sendOneFile(files[i], i === 0 && useCaption ? text : '', opts, dest, (p) => label(Math.round(p * 100)), step === 1 ? replyId : 0);
                 if (r.fell) fellBack = true;
                 sent.push({ chat: r.res.chat.id, id: r.res.message_id, kind: 'media' });
             }
@@ -1386,7 +1430,10 @@
     $tplInstant.addEventListener('change', () => saveSettings({ tplInstant: $tplInstant.checked }));
 
     $dest.addEventListener('change', () => {
-        if (dests.list.some((d) => d.id === $dest.value)) { dests.active = $dest.value; saveDests(); refreshStatus(); renderDests(); }
+        if (dests.list.some((d) => d.id === $dest.value)) {
+            dests.active = $dest.value; saveDests(); refreshStatus(); renderDests();
+            if (replyCtx && activeDest() && activeDest().chatId !== replyCtx.chat) clearReply();
+        }
     });
 
     function renderDestSelect() {
@@ -1517,11 +1564,15 @@
         }
         if (navigator.onLine === false) { showToast('You appear to be offline.', 'error'); return; }
 
-        const opts = { mode: $mode.value, silent: $silent.checked, noPreview: $noPreview.checked, asFile: $asFile.checked };
+        const opts = {
+            mode: $mode.value, silent: $silent.checked, noPreview: $noPreview.checked, asFile: $asFile.checked,
+            reply: replyCtx && replyCtx.chat === dest.chatId ? replyCtx.msgId : 0
+        };
         setSending(true);
         try {
             const res = await sendAll({ text, files, opts, dest, onStatus: (s) => { $sendLabel.textContent = s; } });
             addHistory({ text, mode: opts.mode, dest, sent: res.sent, files: files.map((f) => f.name || 'file') });
+            clearReply();
             if (fromForm) { $msg.value = ''; clearAttachments(); saveDraftNow(); updateCounter(); }
             showToast((res.sent.length > 1 ? 'Sent ' + res.sent.length + ' items to ' : 'Sent to ') + dest.name + '.' +
                 (res.fellBack ? ' The formatting had errors, so it went as plain text.' : ''), 'success');
@@ -1770,7 +1821,7 @@
         return {
             id, ts: (m.date || 0) * 1000, chatId: String(chat.id), chatName, from,
             group: chat.type !== 'private', text: String(m.text || m.caption || '').slice(0, MAX_LEN), media: mediaLabel(m),
-            file: fileOf(m)
+            file: fileOf(m), msgId: m.message_id || 0
         };
     }
 
@@ -1851,9 +1902,17 @@
         saveDests();
         renderDests();
         refreshStatus();
+        if (item.msgId) {
+            replyCtx = { chat: item.chatId, msgId: item.msgId };
+            $('replyText').textContent = 'Replying to ' + item.from + (item.text ? ': ' + item.text.slice(0, 60) : '') + '. Your message will be threaded under it.';
+            $('replyBanner').hidden = false;
+        }
         switchTab('send');
         $msg.focus();
     }
+
+    function clearReply() { replyCtx = null; $('replyBanner').hidden = true; }
+    $('replyCancel').addEventListener('click', clearReply);
 
     /* ---------- Downloading received files ---------- */
     function saveBlob(blob, name) {
@@ -1873,22 +1932,35 @@
             if (err instanceof TgError && /too big/i.test(err.message)) throw new TgError(tooBig);
             throw err;
         }
-        let res;
-        try { res = await fetch('https://api.telegram.org/file/bot' + settings.token + '/' + info.file_path); }
-        catch (e) { throw new TgError('Network error. Check your connection.'); }
-        if (!res.ok) throw new TgError('Telegram could not send the file (HTTP ' + res.status + ').', res.status);
-        const blob = await res.blob();
         let name = f.name || 'file';
         const ext = (info.file_path.match(/\.([A-Za-z0-9]{1,8})$/) || [])[1];
         if (ext && !/\.[A-Za-z0-9]{1,8}$/.test(name)) name += '.' + ext;
-        saveBlob(blob, name);
-        return name;
+        const url = 'https://api.telegram.org/file/bot' + settings.token + '/' + info.file_path;
+        // Telegram's file server often sends no CORS headers, so the in-page fetch can be blocked.
+        // In that case fall back to opening the direct link, which the browser can always download.
+        let res = null;
+        try { res = await fetch(url); } catch (e) { /* blocked: use the direct link */ }
+        if (!res) { openDirect(url, name); return { name, direct: true }; }
+        if (!res.ok) throw new TgError('Telegram could not send the file (HTTP ' + res.status + ').', res.status);
+        saveBlob(await res.blob(), name);
+        return { name, direct: false };
+    }
+
+    function openDirect(url, name) {
+        const a = h('a', { href: url, download: name, target: '_blank', rel: 'noopener noreferrer' });
+        document.body.append(a);
+        a.click();
+        a.remove();
     }
 
     async function downloadOne(f, btn) {
         if (!isConfigured()) { switchTab('settings'); return; }
         await busy(btn, 'Downloading...', async () => {
-            try { showToast('Saved ' + (await fetchAndSave(f)) + '.', 'success'); }
+            try {
+                const r = await fetchAndSave(f);
+                showToast(r.direct ? 'Opened ' + r.name + ' in a new tab. If it shows instead of saving, press Ctrl+S.' : 'Saved ' + r.name + '.',
+                    'success', { duration: r.direct ? 6000 : 3000 });
+            }
             catch (err) { showToast(friendlyError(err), 'error', { duration: 6000 }); }
         });
     }
@@ -1896,15 +1968,23 @@
     $('inboxDlAll').addEventListener('click', () => busy($('inboxDlAll'), 'Downloading...', async () => {
         if (!isConfigured()) { switchTab('settings'); return; }
         const items = inbox.filter((x) => x.file);
-        let ok = 0, lastErr = null;
+        let ok = 0, lastErr = null, direct = false;
         for (const it of items) {
-            try { await fetchAndSave(it.file); ok++; } catch (err) { lastErr = err; }
+            try { const r = await fetchAndSave(it.file); ok++; if (r.direct) direct = true; } catch (err) { lastErr = err; }
             await sleep(500);
         }
         const failed = items.length - ok;
-        showToast('Saved ' + ok + ' of ' + items.length + ' files.' + (failed && lastErr ? ' ' + friendlyError(lastErr) : ''),
-            failed ? 'error' : 'success', { duration: failed ? 6000 : 3000 });
+        showToast('Saved ' + ok + ' of ' + items.length + ' files.' + (failed && lastErr ? ' ' + friendlyError(lastErr) : '') +
+            (direct ? ' Your browser blocks in-page downloads from Telegram, so files open in new tabs. Allow pop-ups for this site if some did not open.' : ''),
+            failed ? 'error' : 'success', { duration: failed || direct ? 7000 : 3000 });
     }));
+
+    function visibleInbox() {
+        const q = $('inboxSearch').value.trim().toLowerCase();
+        const filesOnly = $('inboxFilesOnly').checked;
+        return inbox.filter((x) => (!filesOnly || x.file) &&
+            (!q || [x.from, x.chatName, x.text, x.media, x.file ? x.file.name : ''].join(' ').toLowerCase().includes(q)));
+    }
 
     function renderInbox() {
         const n = unreadCount();
@@ -1913,11 +1993,15 @@
         const list = $('inboxList');
         list.replaceChildren();
         $('inboxTools').hidden = !inbox.length;
+        $('inboxFilter').hidden = !inbox.length;
         $('inboxDlAll').hidden = !inbox.some((x) => x.file);
+        const shown = visibleInbox();
         const empty = $('inboxEmpty');
-        empty.hidden = inbox.length > 0;
-        empty.textContent = 'Replies to your bot appear here. Send it a message from Telegram, then tap Refresh. This needs a bot without a webhook.';
-        inbox.forEach((it) => list.append(h('li', { class: it.id > seenId && currentTab !== 'inbox' ? 'unread' : '' },
+        empty.hidden = shown.length > 0;
+        empty.textContent = inbox.length
+            ? 'Nothing matches your search.'
+            : 'Replies to your bot appear here. Send it a message from Telegram, then tap Refresh. This needs a bot without a webhook.';
+        shown.forEach((it) => list.append(h('li', { class: it.id > seenId && currentTab !== 'inbox' ? 'unread' : '' },
             h('div', { class: 'in-head' },
                 h('span', { class: 'in-from', text: it.from + (it.group ? ' in ' + it.chatName : '') }),
                 h('span', { class: 'in-time', text: fmtTime(it.ts) })
@@ -1937,6 +2021,8 @@
     }
 
     $('inboxRefresh').addEventListener('click', () => pollInbox({ manual: true }));
+    $('inboxSearch').addEventListener('input', renderInbox);
+    $('inboxFilesOnly').addEventListener('change', renderInbox);
     $('autoPoll').addEventListener('change', () => {
         saveSettings({ autoPoll: $('autoPoll').checked });
         if ($('autoPoll').checked) {
