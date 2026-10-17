@@ -501,6 +501,7 @@
         <ul class="list" id="inboxList"></ul>
         <p class="empty" id="inboxEmpty"></p>
         <div class="row tools" id="inboxTools" style="justify-content:center">
+            <button type="button" class="link-btn" id="inboxDlAll" hidden>Download all files</button>
             <button type="button" class="link-btn" id="inboxClear">Clear all</button>
         </div>
     </section>
@@ -701,6 +702,7 @@
     const MAX_LEN = 4096;                 // text message limit
     const CAPTION_MAX = 1024;             // media caption limit
     const MAX_FILE = 50 * 1024 * 1024;    // bot upload limit
+    const TG_DL_MAX = 20 * 1024 * 1024;   // bot download limit
     const PHOTO_MAX = 10 * 1024 * 1024;   // sendPhoto limit
     const MAX_ATTACH = 10;
     const HISTORY_LIMIT = 30, INBOX_LIMIT = 100, TEMPLATE_LIMIT = 30;
@@ -1749,13 +1751,26 @@
         return m.text ? '' : 'Unsupported message';
     }
 
+    // The downloadable file inside a message, if any (any type Telegram supports).
+    function fileOf(m) {
+        const pick = (o, name, mime) => o ? { id: o.file_id, name: o.file_name || name, size: o.file_size || 0, mime: o.mime_type || mime || '' } : null;
+        if (m.photo && m.photo.length) {
+            const p = m.photo[m.photo.length - 1];
+            return pick(p, 'photo_' + (m.message_id || p.file_unique_id) + '.jpg', 'image/jpeg');
+        }
+        return pick(m.document, 'file') || pick(m.video, 'video.mp4', 'video/mp4') || pick(m.audio, 'audio') ||
+            pick(m.voice, 'voice.ogg', 'audio/ogg') || pick(m.video_note, 'video_note.mp4', 'video/mp4') ||
+            pick(m.animation, 'animation.mp4', 'video/mp4') || pick(m.sticker, 'sticker.webp', 'image/webp');
+    }
+
     function toInboxItem(id, m) {
         const chat = m.chat;
         const chatName = chatLabel(chat);
         const from = m.from ? ([m.from.first_name, m.from.last_name].filter(Boolean).join(' ') || m.from.username || chatName) : chatName;
         return {
             id, ts: (m.date || 0) * 1000, chatId: String(chat.id), chatName, from,
-            group: chat.type !== 'private', text: String(m.text || m.caption || '').slice(0, MAX_LEN), media: mediaLabel(m)
+            group: chat.type !== 'private', text: String(m.text || m.caption || '').slice(0, MAX_LEN), media: mediaLabel(m),
+            file: fileOf(m)
         };
     }
 
@@ -1797,6 +1812,11 @@
 
     function setInboxStatus(msg) { $('inboxStatus').textContent = msg; }
 
+    function notifyNew(n) {
+        if (!n || !document.hidden || !('Notification' in window) || Notification.permission !== 'granted') return;
+        try { new Notification('Telegram Sender', { body: n + ' new message' + (n > 1 ? 's' : '') }); } catch (e) { /* ignore */ }
+    }
+
     async function pollInbox({ manual = false } = {}) {
         if (polling || isLocked()) return;
         if (!isConfigured()) {
@@ -1807,6 +1827,7 @@
         $('inboxRefresh').disabled = true;
         try {
             const n = await ingestUpdates(await fetchUpdates());
+            notifyNew(n);
             setInboxStatus('Checked at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + (n ? ', ' + n + ' new.' : ', nothing new.'));
             if (currentTab === 'inbox') markSeen();
         } catch (err) {
@@ -1834,6 +1855,57 @@
         $msg.focus();
     }
 
+    /* ---------- Downloading received files ---------- */
+    function saveBlob(blob, name) {
+        const a = h('a', { href: URL.createObjectURL(blob), download: name.replace(/[\\/:*?"<>|]+/g, '_') });
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    }
+
+    async function fetchAndSave(f) {
+        const tooBig = 'This file is over 20 MB, the most a bot can download. Open it in Telegram instead.';
+        if (f.size > TG_DL_MAX) throw new TgError(tooBig);
+        let info;
+        try { info = await withRetry(() => tg('getFile', { file_id: f.id })); }
+        catch (err) {
+            if (err instanceof TgError && /too big/i.test(err.message)) throw new TgError(tooBig);
+            throw err;
+        }
+        let res;
+        try { res = await fetch('https://api.telegram.org/file/bot' + settings.token + '/' + info.file_path); }
+        catch (e) { throw new TgError('Network error. Check your connection.'); }
+        if (!res.ok) throw new TgError('Telegram could not send the file (HTTP ' + res.status + ').', res.status);
+        const blob = await res.blob();
+        let name = f.name || 'file';
+        const ext = (info.file_path.match(/\.([A-Za-z0-9]{1,8})$/) || [])[1];
+        if (ext && !/\.[A-Za-z0-9]{1,8}$/.test(name)) name += '.' + ext;
+        saveBlob(blob, name);
+        return name;
+    }
+
+    async function downloadOne(f, btn) {
+        if (!isConfigured()) { switchTab('settings'); return; }
+        await busy(btn, 'Downloading...', async () => {
+            try { showToast('Saved ' + (await fetchAndSave(f)) + '.', 'success'); }
+            catch (err) { showToast(friendlyError(err), 'error', { duration: 6000 }); }
+        });
+    }
+
+    $('inboxDlAll').addEventListener('click', () => busy($('inboxDlAll'), 'Downloading...', async () => {
+        if (!isConfigured()) { switchTab('settings'); return; }
+        const items = inbox.filter((x) => x.file);
+        let ok = 0, lastErr = null;
+        for (const it of items) {
+            try { await fetchAndSave(it.file); ok++; } catch (err) { lastErr = err; }
+            await sleep(500);
+        }
+        const failed = items.length - ok;
+        showToast('Saved ' + ok + ' of ' + items.length + ' files.' + (failed && lastErr ? ' ' + friendlyError(lastErr) : ''),
+            failed ? 'error' : 'success', { duration: failed ? 6000 : 3000 });
+    }));
+
     function renderInbox() {
         const n = unreadCount();
         $('inboxCount').textContent = n > 99 ? '99+' : n;
@@ -1841,6 +1913,7 @@
         const list = $('inboxList');
         list.replaceChildren();
         $('inboxTools').hidden = !inbox.length;
+        $('inboxDlAll').hidden = !inbox.some((x) => x.file);
         const empty = $('inboxEmpty');
         empty.hidden = inbox.length > 0;
         empty.textContent = 'Replies to your bot appear here. Send it a message from Telegram, then tap Refresh. This needs a bot without a webhook.';
@@ -1850,10 +1923,11 @@
                 h('span', { class: 'in-time', text: fmtTime(it.ts) })
             ),
             it.text ? h('div', { class: 'in-text', text: it.text }) : null,
-            it.media ? h('span', { class: 'tag', text: it.media }) : null,
+            it.media ? h('span', { class: 'tag', text: it.media + (it.file && it.file.size ? ' \u00B7 ' + fmtSize(it.file.size) : '') }) : null,
             h('div', { class: 'h-foot' },
                 h('span', {}),
                 h('span', { class: 'h-actions' },
+                    it.file ? h('button', { type: 'button', class: 'link-btn', text: 'Download', onclick: (e) => downloadOne(it.file, e.currentTarget) }) : null,
                     h('button', { type: 'button', class: 'link-btn', text: 'Reply', onclick: () => replyTo(it) }),
                     it.text ? h('button', { type: 'button', class: 'link-btn', text: 'Copy', onclick: () => copyWithToast(it.text, 'Message copied') }) : null,
                     h('button', { type: 'button', class: 'link-btn', text: 'Remove', onclick: () => { inbox = inbox.filter((x) => x.id !== it.id); store.set(K.inbox, inbox); renderInbox(); } })
@@ -1865,7 +1939,12 @@
     $('inboxRefresh').addEventListener('click', () => pollInbox({ manual: true }));
     $('autoPoll').addEventListener('change', () => {
         saveSettings({ autoPoll: $('autoPoll').checked });
-        if ($('autoPoll').checked) pollInbox({ manual: true });
+        if ($('autoPoll').checked) {
+            if ('Notification' in window && Notification.permission === 'default') {
+                try { Notification.requestPermission(); } catch (e) { /* ignore */ }
+            }
+            pollInbox({ manual: true });
+        }
     });
     $('inboxClear').addEventListener('click', () => {
         if (!window.confirm('Remove all messages from the Inbox list?')) return;
